@@ -5,8 +5,13 @@
 export const FORMAT_KENNUNG = 'spielepunkte-journal';
 export const FORMAT_VERSION = 1;
 
-/** Dateiname mit Zeitstempel: journal_<geraetename>_JJJJMMTT-HHMM.json */
-export function dateiname(geraetName, datum = new Date()) {
+/** Dateiname mit Zeitstempel: journal_<geraetename>_JJJJMMTT-HHMM.txt
+ *
+ *  Die Endung ist .txt, nicht .json: Chromium erlaubt beim Datei-Teilen nur
+ *  gaengige Audio-, Bild-, Text- und Video-Endungen. Mit .json gibt
+ *  navigator.canShare() false zurueck und der Teilen-Dialog erscheint nie.
+ *  Der Inhalt ist unveraendert JSON. */
+export function dateiname(geraetName, datum = new Date(), endung = 'txt') {
   const z = (n) => String(n).padStart(2, '0');
   const stempel =
     `${datum.getFullYear()}${z(datum.getMonth() + 1)}${z(datum.getDate())}` +
@@ -20,7 +25,7 @@ export function dateiname(geraetName, datum = new Date()) {
     .replace(/ß/g, 'ss')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return `journal_${name || 'geraet'}_${stempel}.json`;
+  return `journal_${name || 'geraet'}_${stempel}.${endung}`;
 }
 
 /**

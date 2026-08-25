@@ -6,7 +6,7 @@
 // WICHTIG bei Aenderungen: VERSION erhoehen, sonst nehmen die Geraete die
 // neuen Dateien nicht an. Neue Dateien zusaetzlich in DATEIEN eintragen.
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const CACHE = `spielepunkte-${VERSION}`;
 
 const DATEIEN = [

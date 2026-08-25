@@ -679,12 +679,36 @@ registriereAnsicht('ergebnis', ({ partieId }) => {
 
 export async function jetztExportieren() {
   const ergebnisExport = await exportiere();
-  if (ergebnisExport.ok) meldung(`${ergebnisExport.name} bereitgestellt.`);
-  else if (ergebnisExport.meldung) await dialog({
-    titel: 'Export angehalten',
-    inhalt: h('p', { klasse: 'sekundaer', text: ergebnisExport.meldung }),
-    tasten: [{ text: 'Verstanden', art: 'haupt' }],
-  });
+
+  if (ergebnisExport.ok) {
+    if (ergebnisExport.weg === 'geteilt') meldung(`Geteilt: ${ergebnisExport.name}`);
+    else if (ergebnisExport.weg === 'gespeichert') meldung(`Gespeichert: ${ergebnisExport.name}`);
+    else {
+      await dialog({
+        titel: 'In den Ordner Downloads gelegt',
+        inhalt: [
+          h('p', { klasse: 'sekundaer', text:
+            `Dieses Gerät bietet keinen Teilen-Dialog für Dateien an, deshalb liegt ` +
+            `${ergebnisExport.name} im Ordner Downloads und muss von dort nach SpielständeAPP verschoben werden.` }),
+          h('p', { klasse: 'klein', text:
+            'Damit das künftig entfällt: in Chrome unter Einstellungen → Downloads die Option ' +
+            '„Fragen, wo Dateien gespeichert werden“ einschalten. Dann erscheint beim Export ein ' +
+            'Ordnerdialog, in dem OneDrive direkt wählbar ist.' }),
+        ],
+        tasten: [{ text: 'Verstanden', art: 'haupt' }],
+      });
+    }
+    return;
+  }
+
+  if (ergebnisExport.abgebrochen) { meldung('Export abgebrochen.'); return; }
+  if (ergebnisExport.meldung) {
+    await dialog({
+      titel: 'Export angehalten',
+      inhalt: h('p', { klasse: 'sekundaer', text: ergebnisExport.meldung }),
+      tasten: [{ text: 'Verstanden', art: 'haupt' }],
+    });
+  }
 }
 
 async function siegerFestlegen(partie, erg) {

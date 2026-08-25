@@ -63,11 +63,25 @@ Bonus) sind bewusst nicht umgesetzt, solange kein Spiel sie braucht.
 ## Datenweg
 
 - Jedes Gerät schreibt Dateien nach dem Muster
-  `journal_<geraetename>_JJJJMMTT-HHMM.json`.
+  `journal_<geraetename>_JJJJMMTT-HHMM.txt`.
+- **Warum `.txt` und nicht `.json`:** Chromium erlaubt beim Datei-Teilen nur
+  gängige Audio-, Bild-, Text- und Video-Endungen, um das Teilen ausführbarer
+  Dateien zu blockieren. Mit `.json` liefert `navigator.canShare()` immer
+  `false`, der Teilen-Dialog erscheint nie und die Datei landet im Ordner
+  Downloads. Der Inhalt der Datei ist unverändert JSON und mit jedem
+  Texteditor lesbar.
+- Der Export versucht drei Wege in dieser Reihenfolge: Teilen-Dialog
+  (Android, OneDrive direkt wählbar), Speichern-Dialog mit Ordnerwahl
+  (Windows, Chrome), Download. Welcher Weg auf dem Gerät greift, steht im
+  Datenbereich unter „Exportieren“.
+- Steht nur der Download zur Verfügung: in Chrome unter Einstellungen →
+  Downloads die Option „Fragen, wo Dateien gespeichert werden“ einschalten.
+  Dann erscheint ein Ordnerdialog mit OneDrive als Ziel.
 - Eine Exportdatei enthält den **vollständigen dem Gerät bekannten Bestand**,
   also eigene und zuvor importierte Ereignisse.
 - Der Import überspringt bereits bekannte Ereignis-IDs, ist also beliebig oft
-  wiederholbar. Mehrfachauswahl ist möglich.
+  wiederholbar. Mehrfachauswahl ist möglich. Es gibt keinen Endungsfilter,
+  damit im OneDrive-Ordner alle Journaldateien wählbar bleiben.
 - Der Export bricht ab, wenn der Bestand kleiner wäre als beim letzten Export.
 - Journale sind append-only. Korrekturen und Löschungen sind eigene Ereignisse.
 

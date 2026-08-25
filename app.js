@@ -4,6 +4,7 @@ import {
   zustand, starte, starteNavigation, registriereAnsicht, navigiere, zeichne,
   schreibe, merke, importiere, exportiere, ereignisseNichtExportiert,
   definitionFuer, aehnlicheNamen, pruefeAufNeueVersion, zeigeNeueVersion,
+  teilenMoeglich, speicherndialogMoeglich,
 } from './kern.js';
 import {
   h, kachel, kopf, taste, meldung, dialog, frage, textFrage, datumZeit,
@@ -182,8 +183,12 @@ async function umschalten(s) {
 
 registriereAnsicht('daten', () => {
   const offen = ereignisseNichtExportiert();
+  const teilen = teilenMoeglich();
+  const speichern = speicherndialogMoeglich();
   const eingabe = h('input', {
-    type: 'file', accept: '.json,application/json', multiple: true,
+    // Kein accept-Filter: im OneDrive-Ordner sollen alle Journaldateien
+    // wählbar bleiben. Das Format prüft die App selbst.
+    type: 'file', multiple: true,
     style: 'display:none',
     onchange: async (e) => {
       const dateien = [...e.target.files];
@@ -191,6 +196,12 @@ registriereAnsicht('daten', () => {
       if (dateien.length) await importDurchfuehren(dateien);
     },
   });
+
+  const exportWeg = teilen
+    ? 'Teilen-Dialog — OneDrive ist dort direkt als Ziel wählbar.'
+    : speichern
+      ? 'Speichern-Dialog — der Zielordner ist frei wählbar.'
+      : 'Ordner Downloads — die Datei muss von dort verschoben werden.';
 
   return [
     kopf('Daten', 'Export und Import über OneDrive', () => navigiere('start')),
@@ -213,9 +224,12 @@ registriereAnsicht('daten', () => {
         ? `${offen} Ereignisse sind noch in keiner Exportdatei enthalten.`
         : 'Alle Ereignisse sind exportiert.' }),
       h('div', { style: 'margin-top:12px' }, taste('Daten exportieren', jetztExportieren, 'haupt')),
-      h('p', { klasse: 'klein', style: 'margin-top:10px', text:
-        'Im Teilen-Dialog OneDrive und den Ordner SpielständeAPP wählen. ' +
-        'Steht Teilen nicht zur Verfügung, landet die Datei im Ordner Downloads und muss von dort verschoben werden.' })
+      h('p', { klasse: 'klein', style: 'margin-top:10px', text: `Weg auf diesem Gerät: ${exportWeg}` }),
+      !teilen && !speichern
+        ? h('p', { klasse: 'hinweis', style: 'margin-top:10px', text:
+            'In Chrome unter Einstellungen → Downloads die Option „Fragen, wo Dateien gespeichert werden“ ' +
+            'einschalten. Dann erscheint beim Export ein Ordnerdialog mit OneDrive als Ziel.' })
+        : null
     ),
 
     kachel(

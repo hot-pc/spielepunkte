@@ -138,6 +138,34 @@ export function starteNavigation() {
 
 // --- Export --------------------------------------------------------------
 
+const TYP = 'text/plain';
+
+/**
+ * Kann dieses Gerät Dateien über den Teilen-Dialog weitergeben?
+ * Wird auch für die Anzeige im Datenbereich gebraucht.
+ */
+export function teilenMoeglich() {
+  try {
+    if (!navigator.canShare || !navigator.share) return false;
+    const probe = new File(['test'], 'probe.txt', { type: TYP });
+    return navigator.canShare({ files: [probe] });
+  } catch {
+    return false;
+  }
+}
+
+/** Steht ein echter Speichern-Dialog mit Ordnerwahl zur Verfügung? */
+export function speicherndialogMoeglich() {
+  return typeof window.showSaveFilePicker === 'function';
+}
+
+/**
+ * Export in drei Stufen, damit die Datei möglichst ohne Nacharbeit im
+ * Zielordner landet:
+ *   1. Teilen-Dialog (Android): OneDrive direkt als Ziel wählbar
+ *   2. Speichern-Dialog (Windows, Chrome): Ordner frei wählbar
+ *   3. Download als letzter Ausweg
+ */
 export async function exportiere() {
   const pruefung = pruefeInvariante(zustand.ereignisse.length, zustand.meta.letzter_export_anzahl || 0);
   if (!pruefung.ok) return { ok: false, meldung: pruefung.meldung };
@@ -145,27 +173,55 @@ export async function exportiere() {
   const paket = baueExport(zustand.ereignisse, zustand.geraet);
   const name = dateiname(zustand.geraet.name);
   const text = JSON.stringify(paket);
+  let weg = null;
 
-  try {
-    const datei = new File([text], name, { type: 'application/json' });
-    if (navigator.canShare && navigator.canShare({ files: [datei] })) {
+  // Stufe 1: Teilen-Dialog. Muss ohne vorheriges await erreicht werden,
+  // sonst verfällt die Nutzergeste und der Browser lehnt ab.
+  if (teilenMoeglich()) {
+    try {
+      const datei = new File([text], name, { type: TYP });
       await navigator.share({ files: [datei], title: name });
-    } else {
-      lade(text, name);
+      weg = 'geteilt';
+    } catch (fehler) {
+      if (fehler && fehler.name === 'AbortError') return { ok: false, abgebrochen: true };
+      weg = null;
     }
-  } catch (fehler) {
-    if (fehler && fehler.name === 'AbortError') return { ok: false, abgebrochen: true };
-    // Teilen nicht moeglich: klassischer Download als Rueckfall (Konzept 3.4)
-    try { lade(text, name); } catch { return { ok: false, meldung: 'Die Datei konnte nicht bereitgestellt werden.' }; }
+  }
+
+  // Stufe 2: Speichern-Dialog mit Ordnerwahl (Desktop).
+  if (!weg && speicherndialogMoeglich()) {
+    try {
+      const griff = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: 'Journaldatei', accept: { [TYP]: ['.txt'] } }],
+      });
+      const strom = await griff.createWritable();
+      await strom.write(text);
+      await strom.close();
+      weg = 'gespeichert';
+    } catch (fehler) {
+      if (fehler && fehler.name === 'AbortError') return { ok: false, abgebrochen: true };
+      weg = null;
+    }
+  }
+
+  // Stufe 3: Download.
+  if (!weg) {
+    try {
+      lade(text, name);
+      weg = 'geladen';
+    } catch {
+      return { ok: false, meldung: 'Die Datei konnte nicht bereitgestellt werden.' };
+    }
   }
 
   await merke('letzter_export', new Date().toISOString());
   await merke('letzter_export_anzahl', zustand.ereignisse.length);
-  return { ok: true, name, anzahl: zustand.ereignisse.length };
+  return { ok: true, name, weg, anzahl: zustand.ereignisse.length };
 }
 
 function lade(text, name) {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+  const url = URL.createObjectURL(new Blob([text], { type: TYP }));
   const a = document.createElement('a');
   a.href = url;
   a.download = name;
