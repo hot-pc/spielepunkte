@@ -690,8 +690,13 @@ export async function jetztExportieren() {
   const ergebnisExport = await exportiere();
 
   if (ergebnisExport.ok) {
-    if (ergebnisExport.weg === 'geteilt') meldung(`Geteilt: ${ergebnisExport.name}`);
-    else if (ergebnisExport.weg === 'gespeichert') meldung(`Gespeichert: ${ergebnisExport.name}`);
+    // Wichtig: neu zeichnen, sonst zeigen Startbildschirm und Datenbereich
+    // weiter die alten Zahlen und der Export sieht aus wie gescheitert.
+    zeichne();
+
+    const anzahl = `${ergebnisExport.anzahl} Ereignisse`;
+    if (ergebnisExport.weg === 'geteilt') meldung(`${anzahl} geteilt: ${ergebnisExport.name}`);
+    else if (ergebnisExport.weg === 'gespeichert') meldung(`${anzahl} gespeichert: ${ergebnisExport.name}`);
     else {
       await dialog({
         titel: 'In den Ordner Downloads gelegt',
@@ -706,6 +711,7 @@ export async function jetztExportieren() {
         ],
         tasten: [{ text: 'Verstanden', art: 'haupt' }],
       });
+      zeichne();
     }
     return;
   }
