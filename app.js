@@ -231,17 +231,32 @@ registriereAnsicht('daten', () => {
         wege.push(h('div', { style: 'margin:12px 0 10px' },
           taste('Ordner auswählen', ordnerNeuWaehlen, 'haupt')));
       }
-    } else {
-      wege.push(h('p', { klasse: 'sekundaer', text:
-        'Den Ordner SpielständeAPP auswählen — die App liest alle Dateien darin selbst, ' +
-        'einzelne Dateien müssen nicht gesucht werden.' }));
-      wege.push(h('div', { style: 'margin:12px 0 10px' },
-        taste('Ordner einlesen', () => ordnerEingabe.click(), 'haupt')));
-      wege.push(ordnerEingabe);
+      wege.push(h('div', {}, taste('Einzelne Dateien wählen', () => dateiEingabe.click(), 'schmal')));
+      wege.push(dateiEingabe);
+      return wege;
     }
 
-    wege.push(h('div', {}, taste('Einzelne Dateien wählen', () => dateiEingabe.click(), 'schmal')));
+    // Am Handy: OneDrive erscheint in der Ordnerauswahl von Android nicht,
+    // weil Cloud-Anbieter keine Verzeichnisbäume freigeben. Deshalb steht
+    // hier die Dateiauswahl vorn, in der OneDrive verfügbar ist.
+    wege.push(h('p', { klasse: 'sekundaer', text:
+      'Im Dateidialog links OneDrive wählen, in den Ordner SpielständeAPP wechseln und ' +
+      'alle Journaldateien markieren — mehrere auf einmal durch langes Drücken. Welche davon ' +
+      'wirklich gebraucht werden, entscheidet die App selbst.' }));
+    wege.push(h('div', { style: 'margin:12px 0 10px' },
+      taste('Dateien aus OneDrive wählen', () => dateiEingabe.click(), 'haupt')));
     wege.push(dateiEingabe);
+
+    wege.push(h('div', { klasse: 'notiz', style: 'margin-bottom:12px' },
+      h('div', { text: 'Noch weniger Tippen: in der OneDrive-App die Dateien markieren, ' +
+        'auf Teilen tippen und „Emelys Spielewelt“ wählen. Der Import läuft dann von selbst. ' +
+        'Das setzt voraus, dass die App auf dem Startbildschirm liegt.' })));
+
+    wege.push(h('div', {}, taste('Ordner vom Gerät einlesen', () => ordnerEingabe.click(), 'schmal')));
+    wege.push(ordnerEingabe);
+    wege.push(h('p', { klasse: 'klein', style: 'margin-top:6px', text:
+      'Die Ordnerauswahl von Android zeigt nur Ordner auf dem Gerät selbst, kein OneDrive.' }));
+
     return wege;
   }
 

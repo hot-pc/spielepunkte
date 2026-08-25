@@ -90,14 +90,21 @@ Geräts sind darin enthalten und werden übersprungen, ohne eingelesen zu werden
 Der Importbericht nennt Anzahl gefundener, gelesener und übersprungener
 Dateien.
 
-1. **Ordner einlesen** (Standardweg). Am Handy über den Ordner-Dialog, am
-   Rechner über `showDirectoryPicker`. Am Rechner bleibt der Ordner gemerkt,
-   danach genügt „Ordner erneut lesen“.
+1. **Dateien aus OneDrive wählen** (Handy). Im Dateidialog OneDrive öffnen, in
+   `SpielständeAPP` wechseln, alle Journaldateien markieren — langes Drücken
+   erlaubt Mehrfachauswahl. Welche Dateien wirklich nötig sind, entscheidet die
+   App selbst.
 2. **Aus OneDrive an die App teilen.** Die App ist als Freigabeziel
    registriert (`share_target` im Manifest). In der OneDrive-App die Dateien
    markieren, Teilen, „Emelys Spielewelt“ wählen — der Import läuft dann ohne
    weiteres Zutun. Funktioniert nur bei installierter App.
-3. **Einzelne Dateien wählen** als Rückfall.
+3. **Ordner einlesen.** Am Rechner über `showDirectoryPicker`; der Ordner
+   bleibt gemerkt, danach genügt „Ordner erneut lesen“.
+   **Auf Android führt dieser Weg nicht zu OneDrive:** Für Ordner nutzt der
+   Browser `ACTION_OPEN_DOCUMENT_TREE`, und Cloud-Anbieter geben keine
+   Verzeichnisbäume frei — anders als bei einzelnen Dateien
+   (`ACTION_OPEN_DOCUMENT`), wo OneDrive erscheint. Am Handy zeigt die
+   Ordnerauswahl deshalb nur den Gerätespeicher.
 
 **Ein Import kann nichts löschen.** Er fügt nur Ereignisse hinzu, deren ID
 noch nicht bekannt ist; vorhandene Ereignisse bleiben unberührt
