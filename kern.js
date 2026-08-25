@@ -297,9 +297,21 @@ export async function importiere(dateien, { vorauswahl = false } = {}) {
 
 // --- Ordner statt Einzeldateien -----------------------------------------
 
-/** Nur am Rechner verfügbar: ein Ordner, den die App wiederfinden kann. */
+/**
+ * Nur am Rechner verfügbar: ein Ordner, den die App wiederfinden kann.
+ *
+ * Geprüft wird zusätzlich auf ein feines Zeigegerät. Der Ordnerweg führt am
+ * Handy nicht zu OneDrive, weil Android dafür ACTION_OPEN_DOCUMENT_TREE nutzt
+ * und Cloud-Anbieter keine Verzeichnisbäume freigeben. Er soll dort deshalb
+ * gar nicht erscheinen, auch wenn der Browser die Funktion mitbringt.
+ */
 export function ordnerzugriffMoeglich() {
-  return typeof window.showDirectoryPicker === 'function';
+  if (typeof window.showDirectoryPicker !== 'function') return false;
+  try {
+    return window.matchMedia('(pointer: fine)').matches;
+  } catch {
+    return true;
+  }
 }
 
 /** Ordner einmalig wählen; das Handle bleibt in IndexedDB erhalten. */
