@@ -4,7 +4,8 @@ import {
   zustand, starte, starteNavigation, registriereAnsicht, navigiere, zeichne,
   schreibe, merke, importiere, exportiere, ereignisseNichtExportiert,
   definitionFuer, aehnlicheNamen, pruefeAufNeueVersion, zeigeNeueVersion,
-  teilenMoeglich, speicherndialogMoeglich,
+  teilenMoeglich, speicherndialogMoeglich, ordnerzugriffMoeglich, ordnerGemerkt,
+  ordnerWaehlen, ordnerImportieren, geteilteDateienUebernehmen,
 } from './kern.js';
 import {
   h, kachel, kopf, taste, meldung, dialog, frage, textFrage, datumZeit,
@@ -185,15 +186,25 @@ registriereAnsicht('daten', () => {
   const offen = ereignisseNichtExportiert();
   const teilen = teilenMoeglich();
   const speichern = speicherndialogMoeglich();
-  const eingabe = h('input', {
+
+  const dateiEingabe = h('input', {
     // Kein accept-Filter: im OneDrive-Ordner sollen alle Journaldateien
     // wählbar bleiben. Das Format prüft die App selbst.
-    type: 'file', multiple: true,
-    style: 'display:none',
+    type: 'file', multiple: true, style: 'display:none',
     onchange: async (e) => {
       const dateien = [...e.target.files];
       e.target.value = '';
       if (dateien.length) await importDurchfuehren(dateien);
+    },
+  });
+
+  const ordnerEingabe = h('input', {
+    type: 'file', multiple: true, webkitdirectory: true, style: 'display:none',
+    onchange: async (e) => {
+      const dateien = [...e.target.files].filter((d) => /\.(txt|json)$/i.test(d.name));
+      e.target.value = '';
+      if (!dateien.length) { meldung('In dem Ordner liegen keine Journaldateien.'); return; }
+      await importDurchfuehren(dateien);
     },
   });
 
@@ -202,6 +213,37 @@ registriereAnsicht('daten', () => {
     : speichern
       ? 'Speichern-Dialog — der Zielordner ist frei wählbar.'
       : 'Ordner Downloads — die Datei muss von dort verschoben werden.';
+
+  function importWege() {
+    const wege = [];
+
+    // Am Rechner: Ordner einmal wählen, danach genügt ein Antippen.
+    if (ordnerzugriffMoeglich()) {
+      if (ordnerGemerkt()) {
+        wege.push(h('div', { style: 'margin-bottom:10px' },
+          taste('Ordner erneut lesen', ordnerLesen, 'haupt')));
+        wege.push(h('div', { style: 'margin-bottom:10px' },
+          taste('Anderen Ordner wählen', ordnerNeuWaehlen, 'schmal')));
+      } else {
+        wege.push(h('p', { klasse: 'sekundaer', text:
+          'Den Ordner SpielständeAPP einmal auswählen. Danach genügt ein Antippen, ' +
+          'die App liest ihn selbst.' }));
+        wege.push(h('div', { style: 'margin:12px 0 10px' },
+          taste('Ordner auswählen', ordnerNeuWaehlen, 'haupt')));
+      }
+    } else {
+      wege.push(h('p', { klasse: 'sekundaer', text:
+        'Den Ordner SpielständeAPP auswählen — die App liest alle Dateien darin selbst, ' +
+        'einzelne Dateien müssen nicht gesucht werden.' }));
+      wege.push(h('div', { style: 'margin:12px 0 10px' },
+        taste('Ordner einlesen', () => ordnerEingabe.click(), 'haupt')));
+      wege.push(ordnerEingabe);
+    }
+
+    wege.push(h('div', {}, taste('Einzelne Dateien wählen', () => dateiEingabe.click(), 'schmal')));
+    wege.push(dateiEingabe);
+    return wege;
+  }
 
   return [
     kopf('Daten', 'Export und Import über OneDrive', () => navigiere('start')),
@@ -234,11 +276,11 @@ registriereAnsicht('daten', () => {
 
     kachel(
       h('h2', { text: 'Importieren' }),
-      h('p', { klasse: 'sekundaer', text:
-        'Journaldateien der anderen Geräte auswählen. Mehrere Dateien auf einmal sind möglich. ' +
-        'Bereits bekannte Ereignisse werden übersprungen.' }),
-      h('div', { style: 'margin-top:12px' }, taste('Daten importieren', () => eingabe.click(), 'haupt')),
-      eingabe
+      ...importWege(),
+      h('p', { klasse: 'klein', style: 'margin-top:12px', text:
+        'Die App liest je Gerät nur die neueste Datei — ältere Dateien desselben Geräts sind darin ' +
+        'enthalten und werden übersprungen. Ein Import kann nichts löschen: er fügt nur Ereignisse ' +
+        'hinzu, die noch fehlen.' })
     ),
 
     kachel(
@@ -269,9 +311,36 @@ async function geraetenameSetzen(ersterStart = false) {
   zeichne();
 }
 
-async function importDurchfuehren(dateien) {
-  const ergebnisImport = await importiere(dateien);
+async function ordnerNeuWaehlen() {
+  try {
+    const name = await ordnerWaehlen();
+    meldung(`Ordner ${name} gemerkt.`);
+    zeichne();
+    await ordnerLesen();
+  } catch (fehler) {
+    if (fehler && fehler.name === 'AbortError') return;
+    meldung('Der Ordner konnte nicht geöffnet werden.');
+  }
+}
 
+async function ordnerLesen() {
+  const ergebnis = await ordnerImportieren();
+  if (!ergebnis.ok) {
+    await dialog({
+      titel: 'Ordner nicht gelesen',
+      inhalt: h('p', { klasse: 'sekundaer', text: ergebnis.meldung }),
+      tasten: [{ text: 'Verstanden', art: 'haupt' }],
+    });
+    return;
+  }
+  await zeigeImportbericht(ergebnis);
+}
+
+async function importDurchfuehren(dateien) {
+  await zeigeImportbericht(await importiere(dateien, { vorauswahl: true }));
+}
+
+async function zeigeImportbericht(ergebnisImport) {
   const zeilen = ergebnisImport.bericht.map((b) => {
     if (!b.ok) {
       return h('li', {}, h('strong', { text: b.datei }), h('div', { klasse: 'klein', text: b.meldung }));
@@ -289,9 +358,19 @@ async function importDurchfuehren(dateien) {
   await dialog({
     titel: ergebnisImport.neu ? `${ergebnisImport.neu} neue Ereignisse übernommen` : 'Nichts Neues dabei',
     inhalt: [
+      ergebnisImport.gesamtImOrdner > ergebnisImport.gelesen
+        ? h('p', { klasse: 'klein', text:
+            `${ergebnisImport.gesamtImOrdner} Dateien gefunden, ${ergebnisImport.gelesen} gelesen ` +
+            `(je Gerät die neueste), ${ergebnisImport.veraltet} als älter übersprungen.` })
+        : null,
       h('ul', { style: 'margin:0 0 10px;padding-left:18px' }, ...zeilen),
       ergebnisImport.neu === 0
-        ? h('p', { klasse: 'klein', text: 'Die Quelle war offenbar nicht neuer als der eigene Bestand.' })
+        ? h('p', { klasse: 'klein', text: 'Alle Ereignisse aus diesen Dateien waren schon vorhanden.' })
+        : null,
+      ergebnisImport.veraltet
+        ? h('p', { klasse: 'klein', text:
+            'Die übersprungenen Dateien können in OneDrive gelöscht werden — ihr Inhalt ist in den ' +
+            'neueren Dateien enthalten.' })
         : null,
       ergebnisImport.warnungen.length
         ? h('p', { klasse: 'hinweis', text:
@@ -322,6 +401,19 @@ async function los() {
   navigiere('start', {}, true);
 
   if (!zustand.geraet.name) await geraetenameSetzen(true);
+
+  // Aus OneDrive an die App geteilte Dateien: der Service Worker hat sie
+  // abgelegt, hier werden sie ohne weiteres Zutun übernommen.
+  if (new URLSearchParams(location.search).has('geteilt')) {
+    history.replaceState({ name: 'start', p: {} }, '', location.pathname);
+    try {
+      const ergebnisGeteilt = await geteilteDateienUebernehmen();
+      if (ergebnisGeteilt) await zeigeImportbericht(ergebnisGeteilt);
+      else meldung('Es lagen keine geteilten Dateien vor.');
+    } catch {
+      meldung('Die geteilten Dateien konnten nicht gelesen werden.');
+    }
+  }
 
   if ('serviceWorker' in navigator) {
     try {

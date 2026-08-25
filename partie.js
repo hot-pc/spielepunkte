@@ -499,24 +499,33 @@ function matrixTabelle(partie, def, stand, kurz, aktiv) {
         h('td', { klasse: 'zahl', text: String(stand.summen.get(id) ?? 0) })))));
 }
 
+let schreibtGerade = false;
+
 async function werteEintragen(partie, def, zelle, wert) {
-  const pruefung = eingabeGueltig(def, wert);
-  if (!pruefung.ok) { meldung(pruefung.meldung); return; }
+  // Sperre gegen Doppeltippen: solange der vorige Wert noch geschrieben und
+  // die Ansicht neu aufgebaut wird, werden weitere Eingaben verworfen.
+  if (schreibtGerade) return;
+  schreibtGerade = true;
+  try {
+    const pruefung = eingabeGueltig(def, wert);
+    if (!pruefung.ok) { meldung(pruefung.meldung); return; }
 
-  const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
-  const bestand = (stand.matrix.get(zelle.sequenz) || new Map()).has(zelle.spieler_id);
-  const korrektur = bestand;
+    const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
+    const bestand = (stand.matrix.get(zelle.sequenz) || new Map()).has(zelle.spieler_id);
 
-  await schreibe(korrektur ? 'eintrag_korrigiert' : 'eintrag_erfasst', {
-    partie_id: partie.id,
-    sequenz: zelle.sequenz,
-    spieler_id: zelle.spieler_id,
-    wert,
-  });
+    await schreibe(bestand ? 'eintrag_korrigiert' : 'eintrag_erfasst', {
+      partie_id: partie.id,
+      sequenz: zelle.sequenz,
+      spieler_id: zelle.spieler_id,
+      wert,
+    });
 
-  erfassung.korrekturZelle = null;
-  erfassung.endeIgnoriert = null;
-  zeichne();
+    erfassung.korrekturZelle = null;
+    erfassung.endeIgnoriert = null;
+    zeichne();
+  } finally {
+    schreibtGerade = false;
+  }
 }
 
 // Modus punkte_fortlaufend ------------------------------------------------

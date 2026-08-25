@@ -79,11 +79,38 @@ Bonus) sind bewusst nicht umgesetzt, solange kein Spiel sie braucht.
   Dann erscheint ein Ordnerdialog mit OneDrive als Ziel.
 - Eine Exportdatei enthält den **vollständigen dem Gerät bekannten Bestand**,
   also eigene und zuvor importierte Ereignisse.
-- Der Import überspringt bereits bekannte Ereignis-IDs, ist also beliebig oft
-  wiederholbar. Mehrfachauswahl ist möglich. Es gibt keinen Endungsfilter,
-  damit im OneDrive-Ordner alle Journaldateien wählbar bleiben.
 - Der Export bricht ab, wenn der Bestand kleiner wäre als beim letzten Export.
 - Journale sind append-only. Korrekturen und Löschungen sind eigene Ereignisse.
+
+## Import — drei Wege
+
+Es muss keine einzelne Datei mehr gesucht werden. Die App bestimmt selbst,
+welche Dateien nötig sind: **je Gerät die neueste**. Ältere Dateien desselben
+Geräts sind darin enthalten und werden übersprungen, ohne eingelesen zu werden.
+Der Importbericht nennt Anzahl gefundener, gelesener und übersprungener
+Dateien.
+
+1. **Ordner einlesen** (Standardweg). Am Handy über den Ordner-Dialog, am
+   Rechner über `showDirectoryPicker`. Am Rechner bleibt der Ordner gemerkt,
+   danach genügt „Ordner erneut lesen“.
+2. **Aus OneDrive an die App teilen.** Die App ist als Freigabeziel
+   registriert (`share_target` im Manifest). In der OneDrive-App die Dateien
+   markieren, Teilen, „Emelys Spielewelt“ wählen — der Import läuft dann ohne
+   weiteres Zutun. Funktioniert nur bei installierter App.
+3. **Einzelne Dateien wählen** als Rückfall.
+
+**Ein Import kann nichts löschen.** Er fügt nur Ereignisse hinzu, deren ID
+noch nicht bekannt ist; vorhandene Ereignisse bleiben unberührt
+(`IDBObjectStore.add`, nicht `put`). Auch der Import einer alten Datei
+verkleinert den Bestand nicht, und der nächste Export enthält weiterhin alles.
+
+**Absicherung:** Ist die neueste Datei eines Geräts kleiner als eine ältere
+desselben Geräts — etwa nach einem Verlust des Browserspeichers —, werden alle
+Dateien dieses Geräts gelesen. Verglichen wird die Dateigröße, das kostet kein
+Einlesen.
+
+**Aufräumen:** Die im Bericht als älter übersprungenen Dateien können in
+OneDrive gelöscht werden. Ihr Inhalt steckt in den neueren.
 
 ## Vor der ersten echten Partie prüfen
 

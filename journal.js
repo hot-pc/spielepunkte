@@ -60,6 +60,67 @@ export function pruefeInvariante(anzahlJetzt, anzahlLetzterExport) {
   };
 }
 
+/**
+ * Dateinamen zerlegen: journal_<geraet>_JJJJMMTT-HHMM.txt
+ * @returns {{geraet:string, stempel:string}|null}
+ */
+export function nameZerlegen(name) {
+  const treffer = /^journal_(.+)_(\d{8}-\d{4})\.(txt|json)$/i.exec(name || '');
+  if (!treffer) return null;
+  return { geraet: treffer[1], stempel: treffer[2] };
+}
+
+/**
+ * Aus einer Ordnerliste die Dateien bestimmen, die gelesen werden müssen.
+ *
+ * Grundlage: Jede Exportdatei enthält den vollständigen Bestand des
+ * schreibenden Geräts. Je Gerät genügt daher die neueste Datei; ältere sind
+ * darin enthalten.
+ *
+ * Absicherung: Ist die neueste Datei eines Geräts kleiner als eine ältere,
+ * ist sie womöglich unvollständig — etwa wenn auf dem Gerät der
+ * Browserspeicher geleert wurde. In diesem Fall werden alle Dateien dieses
+ * Geräts gelesen. Verglichen wird die Dateigröße, das kostet kein Einlesen.
+ *
+ * @param {Array<{name:string, size:number}>} dateien
+ * @returns {{lesen:Array, uebersprungen:Array, fremd:Array}}
+ */
+export function waehleZuLesende(dateien) {
+  const nachGeraet = new Map();
+  const fremd = [];
+
+  for (const datei of dateien) {
+    const teile = nameZerlegen(datei.name);
+    if (!teile) { fremd.push(datei); continue; }
+    if (!nachGeraet.has(teile.geraet)) nachGeraet.set(teile.geraet, []);
+    nachGeraet.get(teile.geraet).push({ datei, stempel: teile.stempel });
+  }
+
+  const lesen = [];
+  const uebersprungen = [];
+
+  for (const gruppe of nachGeraet.values()) {
+    gruppe.sort((a, b) => (a.stempel < b.stempel ? 1 : a.stempel > b.stempel ? -1 : 0));
+    const neueste = gruppe[0];
+    const groesste = gruppe.reduce((a, b) => (b.datei.size > a.datei.size ? b : a), neueste);
+
+    if (groesste.datei.size > neueste.datei.size) {
+      // Die neueste Datei ist kleiner als eine ältere: der Bestand dieses
+      // Geräts ist offenbar zwischenzeitlich geschrumpft. Dann wird nicht
+      // geraten, sondern alles gelesen.
+      for (const eintrag of gruppe) lesen.push(eintrag.datei);
+      continue;
+    }
+
+    lesen.push(neueste.datei);
+    for (const eintrag of gruppe.slice(1)) uebersprungen.push(eintrag.datei);
+  }
+
+  // Dateien mit unbekanntem Namensmuster werden gelesen, nicht verworfen:
+  // sie könnten umbenannte Journale oder Sicherungen sein.
+  return { lesen: [...lesen, ...fremd], uebersprungen, fremd };
+}
+
 /** Ein einzelnes Ereignis auf Plausibilitaet pruefen. */
 function ereignisGueltig(e) {
   return (

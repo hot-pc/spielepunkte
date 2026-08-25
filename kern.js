@@ -3,7 +3,7 @@
 
 import * as db from './db.js';
 import { projiziere } from './projektion.js';
-import { baueExport, dateiname, lesePaket, pruefeInvariante } from './journal.js';
+import { baueExport, dateiname, lesePaket, pruefeInvariante, waehleZuLesende } from './journal.js';
 import { abstand, namensform } from './regeln.js';
 import { meldung } from './ui.js';
 
@@ -237,12 +237,20 @@ export function ereignisseNichtExportiert() {
 
 // --- Import --------------------------------------------------------------
 
-export async function importiere(dateien) {
+/**
+ * Dateien einlesen. Bei `vorauswahl` bestimmt die App selbst, welche Dateien
+ * nötig sind: je Gerät die neueste. Der Rest wird übersprungen, ohne
+ * eingelesen zu werden.
+ */
+export async function importiere(dateien, { vorauswahl = false } = {}) {
+  const alle = [...dateien];
+  const auswahl = vorauswahl ? waehleZuLesende(alle) : { lesen: alle, uebersprungen: [], fremd: [] };
+
   const bericht = [];
   const alleNeuen = [];
   const idsVorher = new Set(zustand.ids);
 
-  for (const datei of dateien) {
+  for (const datei of auswahl.lesen) {
     let inhalt = null;
     try {
       inhalt = JSON.parse(await datei.text());
@@ -277,7 +285,86 @@ export async function importiere(dateien) {
     await merke('letzter_import', new Date().toISOString());
   }
 
-  return { bericht, neu: alleNeuen.length, warnungen: aehnlicheNamen() };
+  return {
+    bericht,
+    neu: alleNeuen.length,
+    gelesen: auswahl.lesen.length,
+    veraltet: auswahl.uebersprungen.length,
+    gesamtImOrdner: alle.length,
+    warnungen: aehnlicheNamen(),
+  };
+}
+
+// --- Ordner statt Einzeldateien -----------------------------------------
+
+/** Nur am Rechner verfügbar: ein Ordner, den die App wiederfinden kann. */
+export function ordnerzugriffMoeglich() {
+  return typeof window.showDirectoryPicker === 'function';
+}
+
+/** Ordner einmalig wählen; das Handle bleibt in IndexedDB erhalten. */
+export async function ordnerWaehlen() {
+  const griff = await window.showDirectoryPicker({ id: 'spielstaende', mode: 'read' });
+  await merke('ordner_griff', griff);
+  return griff.name;
+}
+
+export function ordnerGemerkt() {
+  return !!zustand.meta.ordner_griff;
+}
+
+/** Alle Journaldateien aus dem gemerkten Ordner lesen. */
+export async function ordnerImportieren() {
+  const griff = zustand.meta.ordner_griff;
+  if (!griff) return { ok: false, meldung: 'Es ist noch kein Ordner gewählt.' };
+
+  let rechte = await griff.queryPermission({ mode: 'read' });
+  if (rechte !== 'granted') rechte = await griff.requestPermission({ mode: 'read' });
+  if (rechte !== 'granted') {
+    return { ok: false, meldung: 'Der Zugriff auf den Ordner wurde nicht erteilt.' };
+  }
+
+  const dateien = [];
+  for await (const eintrag of griff.values()) {
+    if (eintrag.kind !== 'file') continue;
+    if (!/\.(txt|json)$/i.test(eintrag.name)) continue;
+    dateien.push(await eintrag.getFile());
+  }
+  if (!dateien.length) return { ok: false, meldung: 'In dem Ordner liegen keine Journaldateien.' };
+
+  return { ok: true, ordner: griff.name, ...(await importiere(dateien, { vorauswahl: true })) };
+}
+
+// --- Aus OneDrive an die App geteilte Dateien ----------------------------
+
+/**
+ * Der Service Worker legt Dateien, die aus einer anderen App an
+ * „Emelys Spielewelt“ geteilt wurden, im Cache ab. Beim Start werden sie
+ * hier abgeholt.
+ */
+export async function geteilteDateienUebernehmen() {
+  if (!('caches' in window)) return null;
+  let cache = null;
+  try {
+    cache = await caches.open('geteilte-dateien');
+  } catch {
+    return null;
+  }
+  const schluessel = await cache.keys();
+  if (!schluessel.length) return null;
+
+  const dateien = [];
+  for (const s of schluessel) {
+    const antwort = await cache.match(s);
+    if (!antwort) continue;
+    const name = antwort.headers.get('x-dateiname') || 'geteilt.txt';
+    const inhalt = await antwort.text();
+    dateien.push(new File([inhalt], name, { type: 'text/plain' }));
+  }
+  for (const s of schluessel) await cache.delete(s);
+  if (!dateien.length) return null;
+
+  return importiere(dateien, { vorauswahl: true });
 }
 
 /**

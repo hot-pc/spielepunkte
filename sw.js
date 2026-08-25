@@ -6,7 +6,7 @@
 // WICHTIG bei Aenderungen: VERSION erhoehen, sonst nehmen die Geraete die
 // neuen Dateien nicht an. Neue Dateien zusaetzlich in DATEIEN eintragen.
 
-const VERSION = 'v2';
+const VERSION = 'v3';
 const CACHE = `spielepunkte-${VERSION}`;
 
 const DATEIEN = [
@@ -53,9 +53,32 @@ self.addEventListener('message', (ereignis) => {
 
 self.addEventListener('fetch', (ereignis) => {
   const anfrage = ereignis.request;
-  if (anfrage.method !== 'GET') return;
-
   const url = new URL(anfrage.url);
+
+  // Aus einer anderen App (zum Beispiel OneDrive) an diese App geteilte
+  // Dateien. Sie werden im Cache abgelegt; die App holt sie beim Start ab.
+  if (anfrage.method === 'POST' && url.pathname.endsWith('/share-ziel')) {
+    ereignis.respondWith((async () => {
+      try {
+        const formular = await anfrage.formData();
+        const dateien = formular.getAll('journale').filter((d) => d && d.name);
+        const cache = await caches.open('geteilte-dateien');
+        let nummer = 0;
+        for (const datei of dateien) {
+          await cache.put(
+            new Request(`geteilt-${Date.now()}-${nummer++}`),
+            new Response(await datei.text(), { headers: { 'x-dateiname': datei.name } })
+          );
+        }
+        return Response.redirect(`./?geteilt=${dateien.length}`, 303);
+      } catch {
+        return Response.redirect('./?geteilt=fehler', 303);
+      }
+    })());
+    return;
+  }
+
+  if (anfrage.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
 
   ereignis.respondWith(
