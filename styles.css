@@ -1,0 +1,230 @@
+/* Emelys Spielewelt — Gestaltung nach Konzept 11.4
+   Variante "Karte" mit Terrakotta-Akzent. Kein Dark Mode: die Vorgabe
+   dunkle Schrift auf hellem Grund gilt unabhaengig von der Systemeinstellung. */
+
+:root {
+  color-scheme: only light;
+
+  --grund: #F1EFE8;
+  --kachel: #FFFFFF;
+  --rand: #D3D1C7;
+  --text: #2C2C2A;
+  --text-sekundaer: #5F5E5A;
+  --akzent: #993C1D;
+  --akzent-text: #FAECE7;
+  --akzent-rand: #D85A30;
+  --akzent-tuenung: #FAECE7;
+  --akzent-dunkel: #712B13;
+
+  --radius: 12px;
+  --radius-klein: 10px;
+  --kachel-innen: 16px;
+  --luecke: 12px;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--grund);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Roboto", "Segoe UI", sans-serif;
+  font-size: 17px;
+  line-height: 1.45;
+  overscroll-behavior-y: contain;
+}
+
+body {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 10px 10px calc(14px + env(safe-area-inset-bottom));
+}
+
+#app { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: var(--luecke); }
+
+/* --- Kacheln --- */
+.kachel {
+  background: var(--kachel);
+  border: 0.5px solid var(--rand);
+  border-radius: var(--radius);
+  padding: var(--kachel-innen);
+}
+.kachel.eng { padding: 10px; }
+.kachel.flach { padding: 0; overflow: hidden; }
+
+/* --- Kopfbereich --- */
+.kopf { display: flex; align-items: center; gap: 12px; }
+.kopf h1 { font-size: 1.22rem; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+.kopf .unterzeile { font-size: 0.82rem; color: var(--text-sekundaer); margin-top: 2px; }
+.zurueck {
+  border: 0.5px solid var(--rand); background: var(--kachel); color: var(--text);
+  border-radius: var(--radius-klein); width: 40px; height: 40px; flex: 0 0 40px;
+  font-size: 1.1rem; line-height: 1; cursor: pointer;
+}
+
+/* --- Typografie --- */
+h2 { font-size: 1.02rem; font-weight: 650; margin: 0 0 10px; }
+h3 { font-size: 0.86rem; font-weight: 650; margin: 18px 0 8px; color: var(--text-sekundaer);
+     text-transform: uppercase; letter-spacing: 0.06em; }
+h3:first-child { margin-top: 0; }
+p { margin: 0 0 10px; }
+p:last-child { margin-bottom: 0; }
+.sekundaer { color: var(--text-sekundaer); font-size: 0.88rem; }
+.klein { font-size: 0.8rem; color: var(--text-sekundaer); }
+.zahl { font-variant-numeric: tabular-nums; }
+
+/* --- Schaltflaechen --- */
+button { font: inherit; }
+.taste {
+  display: block; width: 100%; padding: 14px 16px; border-radius: var(--radius-klein);
+  border: 0.5px solid var(--rand); background: var(--kachel); color: var(--text);
+  font-size: 1rem; font-weight: 550; text-align: center; cursor: pointer;
+}
+.taste.haupt { background: var(--akzent); border-color: var(--akzent); color: var(--akzent-text); }
+.taste.rand-akzent { border: 1px solid var(--akzent-rand); color: var(--akzent-dunkel); }
+.taste:active { filter: brightness(0.95); }
+.taste:disabled { opacity: 0.45; cursor: default; }
+.taste.schmal { padding: 10px 12px; font-size: 0.92rem; }
+.tastenreihe { display: flex; gap: 10px; }
+.tastenreihe > * { flex: 1; }
+
+/* --- Listen --- */
+.liste { list-style: none; margin: 0; padding: 0; }
+.liste li { border-top: 0.5px solid var(--rand); }
+.liste li:first-child { border-top: 0; }
+.eintrag {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 13px var(--kachel-innen); background: none; border: 0; text-align: left;
+  color: inherit; font: inherit; cursor: pointer;
+}
+.eintrag .haupt { flex: 1; min-width: 0; }
+.eintrag .titel { font-weight: 550; }
+.eintrag .pfeil { color: var(--text-sekundaer); flex: 0 0 auto; }
+.eintrag.statisch { cursor: default; }
+
+/* --- Marken und Etiketten --- */
+.marke {
+  display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.74rem;
+  font-weight: 600; background: var(--akzent-tuenung); color: var(--akzent-dunkel);
+  border: 1px solid var(--akzent-rand);
+}
+.marke.still { background: var(--grund); color: var(--text-sekundaer); border-color: var(--rand); }
+
+/* --- Auswahl (Spieler, Spiele) --- */
+.wahl {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 12px var(--kachel-innen); background: none; border: 0;
+  color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.haken {
+  width: 24px; height: 24px; flex: 0 0 24px; border-radius: 6px;
+  border: 1px solid var(--rand); display: grid; place-items: center;
+  font-size: 0.85rem; color: transparent;
+}
+.wahl[aria-pressed="true"] .haken {
+  background: var(--akzent); border-color: var(--akzent); color: var(--akzent-text);
+}
+.reihenfolge { width: 22px; flex: 0 0 22px; text-align: center; color: var(--text-sekundaer);
+               font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+.schieber { display: flex; gap: 6px; }
+.schieber button {
+  width: 38px; height: 38px; border-radius: 8px; border: 0.5px solid var(--rand);
+  background: var(--kachel); color: var(--text); font-size: 0.95rem; cursor: pointer;
+}
+.schieber button:disabled { opacity: 0.3; }
+
+/* --- Rundenmatrix --- */
+.matrix-huelle { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+table.matrix { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.matrix th, table.matrix td {
+  border: 0.5px solid var(--rand); padding: 9px 4px; text-align: center; font-size: 0.95rem;
+}
+table.matrix thead th { font-size: 0.82rem; font-weight: 650; background: var(--grund); }
+table.matrix th.runde { width: 34px; color: var(--text-sekundaer); font-weight: 550; }
+table.matrix td.zelle { cursor: pointer; min-width: 46px; }
+table.matrix td.zelle.aktiv { background: var(--akzent-tuenung); box-shadow: inset 0 0 0 2px var(--akzent-rand); }
+table.matrix td.zelle.leer { color: var(--rand); }
+table.matrix tr.summe td, table.matrix tr.summe th {
+  font-weight: 650; background: var(--grund); border-top: 1px solid var(--text-sekundaer);
+}
+.reset-marke { display: block; font-size: 0.66rem; color: var(--akzent-dunkel); line-height: 1.1; }
+
+/* --- Zifferntastatur --- */
+.tastatur { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tastatur button {
+  padding: 16px 0; font-size: 1.35rem; font-weight: 550; border-radius: var(--radius-klein);
+  border: 0.5px solid var(--rand); background: var(--kachel); color: var(--text);
+  cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.tastatur button:active { background: var(--grund); }
+.tastatur button.aus { opacity: 0.3; }
+.anzeige {
+  border: 1px solid var(--akzent-rand); background: var(--akzent-tuenung);
+  border-radius: var(--radius-klein); padding: 10px 14px; margin-bottom: 10px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.anzeige .wer { font-weight: 650; color: var(--akzent-dunkel); }
+.anzeige .wert { font-size: 1.6rem; font-weight: 650; font-variant-numeric: tabular-nums; }
+
+/* --- Hinweise --- */
+.hinweis {
+  border: 1px solid var(--akzent-rand); background: var(--akzent-tuenung);
+  color: var(--akzent-dunkel); border-radius: var(--radius-klein);
+  padding: 12px 14px; font-size: 0.9rem;
+}
+.hinweis .taste { margin-top: 10px; }
+.notiz {
+  border-left: 2px solid var(--rand); padding-left: 10px;
+  color: var(--text-sekundaer); font-size: 0.85rem;
+}
+
+/* --- Tabellen der Auswertung --- */
+table.daten { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.daten th, table.daten td { padding: 8px 6px; text-align: right; font-size: 0.9rem;
+                                 border-top: 0.5px solid var(--rand); }
+table.daten th:first-child, table.daten td:first-child { text-align: left; }
+table.daten thead th { border-top: 0; font-size: 0.78rem; color: var(--text-sekundaer);
+                       text-transform: uppercase; letter-spacing: 0.04em; font-weight: 650; }
+
+/* --- Formularfelder --- */
+label.feld { display: block; margin-bottom: 12px; }
+label.feld .bezeichnung { display: block; font-size: 0.82rem; color: var(--text-sekundaer);
+                          margin-bottom: 5px; }
+input[type="text"], input[type="number"], input[type="date"], select {
+  width: 100%; padding: 12px; font: inherit; color: var(--text);
+  background: var(--kachel); border: 0.5px solid var(--rand); border-radius: var(--radius-klein);
+}
+input:focus-visible, select:focus-visible, button:focus-visible, .eintrag:focus-visible,
+.wahl:focus-visible { outline: 2px solid var(--akzent-rand); outline-offset: 1px; }
+
+/* --- Overlay --- */
+.overlay {
+  position: fixed; inset: 0; background: rgba(44, 44, 42, 0.4);
+  display: grid; place-items: end center; padding: 12px; z-index: 50;
+}
+.overlay .karte {
+  background: var(--kachel); border: 0.5px solid var(--rand); border-radius: var(--radius);
+  padding: var(--kachel-innen); width: 100%; max-width: 540px;
+  margin-bottom: env(safe-area-inset-bottom);
+}
+.overlay h2 { margin-bottom: 8px; }
+
+/* --- Meldung --- */
+#meldung {
+  position: fixed; left: 12px; right: 12px; bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 60; display: flex; justify-content: center; pointer-events: none;
+}
+#meldung .blase {
+  background: var(--text); color: var(--grund); border-radius: var(--radius-klein);
+  padding: 11px 16px; font-size: 0.9rem; max-width: 540px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  #meldung .blase { animation: auf 160ms ease-out; }
+  @keyframes auf { from { opacity: 0; transform: translateY(6px); } }
+}
+
+/* Platzhinweis 11.4: bei vielen Spielern zuerst die Innenabstaende sparen. */
+body.viele-spieler { --kachel-innen: 10px; }
+body.viele-spieler table.matrix th, body.viele-spieler table.matrix td { padding: 8px 2px; }
