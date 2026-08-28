@@ -85,6 +85,11 @@ button { font: inherit; }
 .taste.rand-akzent { border: 1px solid var(--akzent-rand); color: var(--akzent-dunkel); }
 .taste:active { filter: brightness(0.95); }
 .taste:disabled { opacity: 0.45; cursor: default; }
+
+/* Ein Knopf, dessen Aktion noch läuft: sichtbar gesperrt, mit Punkten als
+   Zeichen, dass etwas passiert. */
+.taste.laeuft { opacity: 0.6; cursor: progress; }
+.taste.laeuft::after { content: ' …'; }
 .taste.schmal { padding: 10px 12px; font-size: 0.92rem; }
 .tastenreihe { display: flex; gap: 10px; }
 .tastenreihe > * { flex: 1; }

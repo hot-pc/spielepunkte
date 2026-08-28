@@ -30,8 +30,39 @@ export function kopf(titel, unterzeile, zurueck) {
   );
 }
 
+/**
+ * Schaltfläche. Gibt der Handler ein Promise zurück, sperrt sich der Knopf
+ * selbst, bis die Aktion fertig ist, und zeigt das auch an. Damit ist
+ * erkennbar, dass ein Antippen angekommen ist, und Mehrfachklicks können
+ * dieselbe Aktion nicht zweimal auslösen.
+ */
 export function taste(text, onclick, art = '') {
-  return h('button', { klasse: `taste ${art}`.trim(), onclick }, text);
+  const el = h('button', { klasse: `taste ${art}`.trim(), type: 'button' }, text);
+  if (!onclick) return el;
+
+  el.addEventListener('click', () => {
+    if (el.disabled) return;
+    let ergebnis;
+    try {
+      ergebnis = onclick();
+    } catch (fehler) {
+      console.error(fehler);
+      return;
+    }
+    if (!ergebnis || typeof ergebnis.then !== 'function') return;
+
+    el.disabled = true;
+    el.classList.add('laeuft');
+    const freigeben = () => {
+      // Nach einem Neuaufbau der Ansicht ist der Knopf nicht mehr im
+      // Dokument; dann gibt es nichts freizugeben.
+      if (!el.isConnected) return;
+      el.disabled = false;
+      el.classList.remove('laeuft');
+    };
+    ergebnis.then(freigeben, (fehler) => { console.error(fehler); freigeben(); });
+  });
+  return el;
 }
 
 export function meldung(text) {
@@ -139,7 +170,8 @@ export function zifferntastatur({ negativErlaubt, uebernehmen, anzeigeWer, start
   const fertig = () => {
     const zahl = Number.parseInt(puffer, 10);
     if (!Number.isFinite(zahl)) { meldung('Bitte einen Wert eingeben.'); return; }
-    uebernehmen(zahl);
+    // Rückgabe durchreichen: der Knopf sperrt sich, bis der Wert steht.
+    return uebernehmen(zahl);
   };
 
   const t = (text, fn, klasse = '') => h('button', { klasse, onclick: fn, type: 'button' }, text);
