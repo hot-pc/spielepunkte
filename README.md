@@ -1,8 +1,8 @@
 # Emelys Spielewelt
 
-Punkteerfassung für Gesellschaftsspiele. PWA ohne Bauvorgang, ohne Konto, ohne
-Cloud-Anbindung. Daten liegen lokal in IndexedDB, der Austausch zwischen
-Geräten läuft über Export- und Importdateien im OneDrive-Ordner `SpielständeAPP`.
+Punkteerfassung für Gesellschaftsspiele. PWA ohne Bauvorgang, ohne Konto.
+Daten liegen lokal in IndexedDB; der Abgleich zwischen den Geräten läuft über
+ein privates Daten-Repository auf GitHub.
 
 Adresse: https://hot-pc.github.io/spielepunkte/
 
@@ -24,6 +24,7 @@ Adresse: https://hot-pc.github.io/spielepunkte/
 | `kurznamen.js` | Kurznamen für die Spaltenköpfe |
 | `db.js` | IndexedDB |
 | `ui.js` | DOM-Helfer, Dialoge, Zifferntastatur |
+| `github.js` | Zugriff auf das Daten-Repository (Contents-API) |
 | `sw.js` | Service Worker (Offlinebetrieb) |
 | `manifest.webmanifest`, `icon-*.png` | Installation auf dem Startbildschirm |
 
@@ -60,72 +61,68 @@ Umgesetzter Sonderregel-Baustein: `schwellen_reset` mit `ausloeser_summe` und
 `neue_summe`. Weitere Bausteine (Rundenende-Bonus, Punkte-Transfer, fester
 Bonus) sind bewusst nicht umgesetzt, solange kein Spiel sie braucht.
 
-## Datenweg
+## Datenweg — Abgleich über ein privates Repository
 
-- Jedes Gerät schreibt Dateien nach dem Muster
-  `journal_<geraetename>_JJJJMMTT-HHMM.txt`.
-- **Warum `.txt` und nicht `.json`:** Chromium erlaubt beim Datei-Teilen nur
-  gängige Audio-, Bild-, Text- und Video-Endungen, um das Teilen ausführbarer
-  Dateien zu blockieren. Mit `.json` liefert `navigator.canShare()` immer
-  `false`, der Teilen-Dialog erscheint nie und die Datei landet im Ordner
-  Downloads. Der Inhalt der Datei ist unverändert JSON und mit jedem
-  Texteditor lesbar.
-- Der Export versucht drei Wege in dieser Reihenfolge: Teilen-Dialog
-  (Android, OneDrive direkt wählbar), Speichern-Dialog mit Ordnerwahl
-  (Windows, Chrome), Download. Welcher Weg auf dem Gerät greift, steht im
-  Datenbereich unter „Exportieren“.
-- Steht nur der Download zur Verfügung: in Chrome unter Einstellungen →
-  Downloads die Option „Fragen, wo Dateien gespeichert werden“ einschalten.
-  Dann erscheint ein Ordnerdialog mit OneDrive als Ziel.
-- Eine Exportdatei enthält den **vollständigen dem Gerät bekannten Bestand**,
-  also eigene und zuvor importierte Ereignisse.
-- Der Export bricht ab, wenn der Bestand kleiner wäre als beim letzten Export.
-- Journale sind append-only. Korrekturen und Löschungen sind eigene Ereignisse.
+Alle Geräte tauschen ihre Spielstände über ein **zweites, privates**
+Repository aus: `hot-pc/spielepunkte-daten`, Ordner `journale`. Der App-Code
+bleibt im öffentlichen Repo, weil GitHub Pages das braucht; die Spielstände
+liegen davon getrennt.
 
-## Import — drei Wege
+- Jedes Gerät hat dort **genau eine** Datei, `journal_<geraetename>.json`, die
+  beim Abgleich überschrieben wird. Keine Zeitstempel, keine Dateiauswahl,
+  kein Aufräumen.
+- Eine Datei enthält den vollständigen dem Gerät bekannten Bestand, also
+  eigene und von anderen übernommene Ereignisse.
+- Der Abgleich läuft in einem Vorgang: Ordner auflisten, alle Journaldateien
+  lesen und fehlende Ereignisse übernehmen, dann die eigene Datei
+  zurückschreiben. Geschrieben wird nur, wenn sich etwas geändert hat — das
+  hält die Zahl der Commits klein.
+- **Auch die eigene Datei wird gelesen.** Dadurch kommt der Bestand nach einem
+  Verlust des Browserspeichers vollständig zurück.
+- Journale sind append-only und werden über die Ereignis-IDs zusammengeführt.
+  Ein Abgleich kann nie etwas löschen.
+- Ändert ein anderes Gerät dieselbe Datei zwischendurch, antwortet GitHub mit
+  einem Konflikt. Die App holt dann den aktuellen Stand und schreibt erneut.
+- Ohne Netz passiert nichts: der lokale Bestand bleibt unberührt, der Abgleich
+  wird beim nächsten Versuch nachgeholt.
 
-Es muss keine einzelne Datei mehr gesucht werden. Die App bestimmt selbst,
-welche Dateien nötig sind: **je Gerät die neueste**. Ältere Dateien desselben
-Geräts sind darin enthalten und werden übersprungen, ohne eingelesen zu werden.
-Der Importbericht nennt Anzahl gefundener, gelesener und übersprungener
-Dateien.
+Automatisch abgeglichen wird beim Start der App und nach jeder beendeten
+Partie. Zusätzlich gibt es unter Daten den Knopf „Jetzt abgleichen“.
 
-1. **Auswahl Importdaten** (Handy — der einzige Knopf dort). Im Dialog OneDrive
-   öffnen, in `SpielständeAPP` wechseln, alle Journaldateien markieren — langes
-   Drücken erlaubt Mehrfachauswahl. Welche Dateien wirklich nötig sind,
-   entscheidet die App selbst.
-2. **Aus OneDrive an die App teilen.** Die App ist als Freigabeziel
-   registriert (`share_target` im Manifest). In der OneDrive-App die Dateien
-   markieren, Teilen, „Emelys Spielewelt“ wählen — der Import läuft dann ohne
-   weiteres Zutun. Funktioniert nur bei installierter App.
-3. **Ordner einlesen — nur am Rechner.** Über `showDirectoryPicker`; der Ordner
-   bleibt gemerkt, danach genügt „Ordner erneut lesen“.
-   Am Handy wird dieser Weg gar nicht angeboten: Für Ordner nutzt der Browser
-   `ACTION_OPEN_DOCUMENT_TREE`, und Cloud-Anbieter geben keine
-   Verzeichnisbäume frei — anders als bei einzelnen Dateien
-   (`ACTION_OPEN_DOCUMENT`), wo OneDrive erscheint. Die Weiche prüft
-   `showDirectoryPicker` **und** `(pointer: fine)`, damit am Handy kein
-   Ordnerknopf erscheint.
+### Zugang einrichten (einmal je Gerät)
 
-**Ein Import kann nichts löschen.** Er fügt nur Ereignisse hinzu, deren ID
-noch nicht bekannt ist; vorhandene Ereignisse bleiben unberührt
-(`IDBObjectStore.add`, nicht `put`). Auch der Import einer alten Datei
-verkleinert den Bestand nicht, und der nächste Export enthält weiterhin alles.
+1. Auf GitHub das private Repository `hot-pc/spielepunkte-daten` anlegen.
+2. Ein Fine-grained Token erzeugen: Settings → Developer settings → Personal
+   access tokens → Fine-grained tokens. Zugriff **nur** auf dieses
+   Repository, Berechtigung **Contents: Read and write**.
+3. In der App unter Daten → Zugang: Repository und Ordner eintragen, dann das
+   Token, dann „Verbindung prüfen“.
 
-**Absicherung:** Ist die neueste Datei eines Geräts kleiner als eine ältere
-desselben Geräts — etwa nach einem Verlust des Browserspeichers —, werden alle
-Dateien dieses Geräts gelesen. Verglichen wird die Dateigröße, das kostet kein
-Einlesen.
+Das Token wird ausschließlich lokal im Browser des Geräts gespeichert und nie
+in ein Repository geschrieben. Ein gemeinsames Token für alle Familiengeräte
+ist vorgesehen. Läuft es ab, muss es einmal neu eingetragen werden; geht ein
+Gerät verloren, das Token auf GitHub widerrufen und ein neues verteilen.
 
-**Aufräumen:** Die im Bericht als älter übersprungenen Dateien können in
-OneDrive gelöscht werden. Ihr Inhalt steckt in den neueren.
+Technische Grundlagen: Die GitHub-REST-API erlaubt Anfragen direkt aus dem
+Browser (CORS, `Access-Control-Allow-Origin: *`). Dateien werden über die
+Contents-API gelesen und geschrieben; das Limit liegt bei 100 MB, wobei
+Dateien über 1 MB beim Lesen den `.raw`-Medientyp brauchen — deshalb liest die
+App immer mit `Accept: application/vnd.github.raw`.
+
+### Sicherung
+
+Das Daten-Repository ist die Sicherung: Jeder Abgleich erzeugt einen Commit,
+frühere Stände bleiben in der Versionsgeschichte einsehbar. Dadurch wächst das
+Repository über die Jahre; falls es zu groß wird, legt man es einfach neu an —
+der aktuelle Stand liegt ja auf jedem Gerät vollständig vor.
 
 ## Vor der ersten echten Partie prüfen
 
 1. Seite auf dem Handy öffnen, „Zum Startbildschirm hinzufügen“
-2. Gerätenamen setzen, einen Spieler anlegen
-3. Flugmodus einschalten, App vom Startbildschirm starten — sie muss starten,
-   nicht nur weiterlaufen
-4. Exportieren, Datei in OneDrive `SpielständeAPP` ablegen
-5. Auf dem zweiten Gerät importieren: der Spieler muss dort erscheinen
-6. Denselben Import wiederholen: Meldung muss „0 neue Ereignisse“ lauten
+2. Gerätenamen setzen, Zugang eintragen, „Verbindung prüfen“
+3. Einen Spieler anlegen, „Jetzt abgleichen“ — im Repository muss
+   `journale/journal_<geraet>.json` erscheinen
+4. Flugmodus einschalten, App vom Startbildschirm starten — sie muss starten,
+   nicht nur weiterlaufen, und der Abgleich darf nur eine Meldung erzeugen
+5. Auf dem zweiten Gerät abgleichen: der Spieler muss dort erscheinen
+6. Erneut abgleichen: Meldung muss „Alles auf demselben Stand“ lauten
