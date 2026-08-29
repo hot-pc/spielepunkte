@@ -2,10 +2,11 @@
 
 import {
   zustand, registriereAnsicht, navigiere, zeichne, schreibe, merke,
-  neueId, definitionFuer, spieleZurAuswahl, abgleichStill, zeichneSanft,
+  neueId, definitionFuer, spieleZurAuswahl, abgleichStill, zeichneSanft, notizFuer,
 } from './kern.js';
 import {
-  h, kachel, kopf, taste, meldung, dialog, frage, textFrage, zifferntastatur, datumZeit,
+  h, kachel, kopf, taste, meldung, dialog, frage, textFrage, notizFrage,
+  zifferntastatur, datumZeit,
 } from './ui.js';
 import {
   berechneStand, platzierung, pruefeEnde, eingabeGueltig, endbedingungVorschlag,
@@ -66,6 +67,49 @@ export async function spielerAnlegen() {
   return id;
 }
 
+
+// --- Infos und Hausregeln je Spiel ---------------------------------------
+
+/**
+ * Zeigt die Hinweise aus der Spieldefinition und die selbst erfassten
+ * Hausregeln. Die Notiz liegt im Journal und steht damit auf allen Geräten.
+ */
+export async function zeigeInfos(def) {
+  if (!def) return;
+  const notiz = notizFuer(def.id);
+
+  const kopfteil = h('div', {},
+    h('p', { klasse: 'sekundaer', text: beschreibungSpiel(def) }),
+    def.hinweis_erfassung
+      ? h('p', { klasse: 'notiz', style: 'margin-bottom:12px' }, def.hinweis_erfassung)
+      : null,
+    notiz && notiz.zeit
+      ? h('p', { klasse: 'klein', text: `Zuletzt geändert am ${datumZeit(notiz.zeit)}` +
+          (notiz.geraet ? ` auf ${notiz.geraet}` : '') })
+      : null
+  );
+
+  const text = await notizFrage({
+    titel: `${def.name} — Infos`,
+    bezeichnung: 'Eigene Hausregeln und Notizen',
+    vorbelegung: notiz ? notiz.text : '',
+    kopf: kopfteil,
+  });
+  if (text === null) return;
+  if (notiz && text === notiz.text) return;
+
+  await schreibe('spielnotiz_gesetzt', { spiel_id: def.id, text });
+  meldung(text ? 'Notiz gespeichert.' : 'Notiz geleert.');
+  zeichne();
+  // Damit die Regel auch am nächsten Spieltisch steht.
+  abgleichStill().then((ergebnis) => { if (ergebnis && ergebnis.ok) zeichneSanft(); });
+}
+
+/** Knopfbeschriftung mit Hinweis, ob schon etwas hinterlegt ist. */
+export function infoTaste(def, art = 'schmal') {
+  return taste(notizFuer(def.id) ? 'Infos ●' : 'Infos', () => zeigeInfos(def), art);
+}
+
 // --- Spielwahl -----------------------------------------------------------
 
 registriereAnsicht('spielwahl', () => [
@@ -78,7 +122,7 @@ registriereAnsicht('spielwahl', () => [
       ...spieleZurAuswahl().map((s) =>
         h(
           'li',
-          {},
+          { klasse: 'zeile-mit-aktion' },
           h(
             'button',
             { klasse: 'eintrag', onclick: () => navigiere('partiestart', { spielId: s.id }) },
@@ -90,7 +134,12 @@ registriereAnsicht('spielwahl', () => [
                 text: beschreibungSpiel(s) })
             ),
             h('span', { klasse: 'pfeil', text: '›' })
-          )
+          ),
+          h('button', {
+            klasse: 'nebenaktion', type: 'button',
+            'aria-label': `Infos zu ${s.name}`,
+            onclick: (e) => { e.stopPropagation(); zeigeInfos(s); },
+          }, notizFuer(s.id) ? 'Infos ●' : 'Infos')
         )
       )
     )
@@ -204,6 +253,7 @@ registriereAnsicht('partiestart', ({ spielId }) => {
 
     kachel(
       taste('Partie starten', () => partieStarten(def), 'haupt'),
+      h('div', { style: 'margin-top:10px' }, infoTaste(def)),
       h('p', { klasse: 'klein', style: 'margin-top:10px',
         text: def.hinweis_erfassung || 'Der Startzeitpunkt wird automatisch festgehalten.' })
     ),
@@ -358,7 +408,9 @@ function erfassungNurSieger(partie, def) {
     ),
     kachel(
       h('p', { klasse: 'sekundaer', text: 'Während des Spiels wird nichts erfasst. Am Ende den Sieger antippen.' }),
-      h('div', { style: 'margin-top:12px' }, taste('Spiel beenden', () => siegerWaehlen(partie), 'haupt'))
+      h('div', { klasse: 'tastenreihe', style: 'margin-top:12px' },
+        infoTaste(def, 'schmal'),
+        taste('Spiel beenden', () => siegerWaehlen(partie), 'haupt schmal'))
     ),
     kachel(abbrechenTaste(partie)),
   ];
@@ -458,6 +510,7 @@ function erfassungRundenblock(partie, def) {
 
     kachel(
       h('div', { klasse: 'tastenreihe' },
+        infoTaste(def, 'schmal'),
         beendet
           ? taste('Zum Ergebnis', () => navigiere('ergebnis', { partieId: partie.id }), 'haupt schmal')
           : taste('Partie beenden', () => partieBeenden(partie, def), 'haupt schmal')),
@@ -590,9 +643,11 @@ function erfassungFortlaufend(partie, def) {
       : null,
 
     kachel(
-      beendet
-        ? taste('Zum Ergebnis', () => navigiere('ergebnis', { partieId: partie.id }), 'haupt')
-        : taste('Spiel beenden', () => partieBeenden(partie, def), 'haupt'),
+      h('div', { klasse: 'tastenreihe' },
+        infoTaste(def, 'schmal'),
+        beendet
+          ? taste('Zum Ergebnis', () => navigiere('ergebnis', { partieId: partie.id }), 'haupt schmal')
+          : taste('Spiel beenden', () => partieBeenden(partie, def), 'haupt schmal')),
       !beendet ? h('div', { style: 'margin-top:10px' }, abbrechenTaste(partie)) : null
     ),
   ];

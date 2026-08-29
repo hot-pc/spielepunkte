@@ -137,6 +137,34 @@ export async function textFrage({ titel, bezeichnung, vorbelegung = '', hinweis,
  * Zifferntastatur. Haelt den Eingabepuffer selbst und meldet den fertigen
  * Wert per uebernehmen(zahl).
  */
+/** Dialog mit mehrzeiligem Textfeld, für längere Notizen. */
+export async function notizFrage({ titel, bezeichnung, vorbelegung = '', kopf, hoechstlaenge = 4000 }) {
+  const feld = h('textarea', {
+    rows: '9',
+    maxlength: String(hoechstlaenge),
+    placeholder: 'Zum Beispiel: Rundensieger bekommt 0 Punkte, alle anderen ihre Restkarten.',
+  });
+  feld.value = vorbelegung;
+
+  const zaehler = h('div', { klasse: 'klein', style: 'text-align:right' });
+  const zaehle = () => { zaehler.textContent = `${feld.value.length} von ${hoechstlaenge} Zeichen`; };
+  feld.addEventListener('input', zaehle);
+  zaehle();
+
+  return dialog({
+    titel,
+    inhalt: [
+      kopf || null,
+      h('label', { klasse: 'feld' }, h('span', { klasse: 'bezeichnung', text: bezeichnung }), feld),
+      zaehler,
+    ],
+    tasten: [
+      { text: 'Abbrechen', wert: null },
+      { text: 'Speichern', art: 'haupt', wert: () => feld.value.trim() },
+    ],
+  });
+}
+
 export function zifferntastatur({ negativErlaubt, uebernehmen, anzeigeWer, startwert = '' }) {
   let puffer = startwert === null || startwert === undefined ? '' : String(startwert);
   // Ein vorbelegter Wert wird beim ersten Tastendruck ersetzt, nicht

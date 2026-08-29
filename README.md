@@ -28,6 +28,28 @@ Adresse: https://hot-pc.github.io/spielepunkte/
 | `sw.js` | Service Worker (Offlinebetrieb) |
 | `manifest.webmanifest`, `icon-*.png` | Installation auf dem Startbildschirm |
 
+## Infos und Hausregeln je Spiel
+
+Über den Knopf **Infos** — in der Spielauswahl, beim Partiestart und während
+der Erfassung — lässt sich zu jedem Spiel ein freier Text hinterlegen, etwa
+die Antwort auf wiederkehrende Streitfragen („Bekommt der Rundensieger 0
+Punkte?"). Bis 4000 Zeichen.
+
+Das Fenster zeigt zuerst den festen Hinweis aus `spiele.json`
+(`hinweis_erfassung`), darunter die selbst erfasste Notiz. Ist etwas
+hinterlegt, steht am Knopf ein Punkt: **Infos ●**.
+
+Die Notiz ist ein Journal-Ereignis (`spielnotiz_gesetzt`) und steht damit nach
+dem Abgleich auf allen Geräten. Jede Änderung ist ein neues Ereignis, die
+jüngste Fassung gilt; frühere bleiben im Journal erhalten. Ändern zwei Geräte
+unabhängig dieselbe Notiz, gewinnt der spätere Zeitstempel — es geht also eine
+der beiden Formulierungen verloren, während beide im Journal nachvollziehbar
+bleiben.
+
+Dauerhafte Regeln, die für alle gelten sollen, gehören besser in
+`hinweis_erfassung` in `spiele.json`; die Notiz ist für das gedacht, was am
+Tisch entschieden wird.
+
 ## Änderungen veröffentlichen — Pflichtschritt
 
 Nach **jeder** Änderung an einer Datei muss in `sw.js` die Zeile

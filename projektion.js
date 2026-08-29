@@ -14,10 +14,17 @@ export function sortiere(ereignisse) {
 export function projiziere(ereignisse) {
   const spieler = new Map();
   const partien = new Map();
+  const notizen = new Map();
 
   for (const e of sortiere(ereignisse)) {
     const d = e.daten || {};
     switch (e.typ) {
+      case 'spielnotiz_gesetzt':
+        // Spätere Ereignisse gewinnen. Weil chronologisch durchlaufen wird,
+        // steht am Ende die jüngste Fassung je Spiel.
+        notizen.set(d.spiel_id, { text: d.text || '', zeit: e.zeit, geraet: e.geraet_name || null });
+        break;
+
       case 'spieler_angelegt':
         if (!spieler.has(d.id)) {
           spieler.set(d.id, { id: d.id, name: d.name, aktiv: true });
@@ -112,7 +119,7 @@ export function projiziere(ereignisse) {
     }
   }
 
-  return { spieler, partien };
+  return { spieler, partien, notizen };
 }
 
 /** Aktive Spieler alphabetisch, fuer Auswahllisten. */

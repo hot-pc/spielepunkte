@@ -206,9 +206,23 @@ table.daten thead th { border-top: 0; font-size: 0.78rem; color: var(--text-seku
 label.feld { display: block; margin-bottom: 12px; }
 label.feld .bezeichnung { display: block; font-size: 0.82rem; color: var(--text-sekundaer);
                           margin-bottom: 5px; }
-input[type="text"], input[type="number"], input[type="date"], select {
+input[type="text"], input[type="number"], input[type="date"], select, textarea {
   width: 100%; padding: 12px; font: inherit; color: var(--text);
   background: var(--kachel); border: 0.5px solid var(--rand); border-radius: var(--radius-klein);
+}
+textarea { resize: vertical; line-height: 1.45; min-height: 120px; }
+
+/* Notiztext im Infofenster: Absätze und Zeilenumbrüche bleiben erhalten. */
+.notiztext { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Listenzeile mit zusätzlicher Aktion rechts. */
+.zeile-mit-aktion { display: flex; align-items: center; }
+.zeile-mit-aktion .eintrag { flex: 1 1 auto; min-width: 0; }
+.zeile-mit-aktion .nebenaktion {
+  flex: 0 0 auto; margin-right: var(--kachel-innen); padding: 6px 12px;
+  border-radius: 999px; border: 1px solid var(--akzent-rand);
+  background: var(--kachel); color: var(--akzent-dunkel);
+  font-size: 0.78rem; font-weight: 600; cursor: pointer;
 }
 input:focus-visible, select:focus-visible, button:focus-visible, .eintrag:focus-visible,
 .wahl:focus-visible { outline: 2px solid var(--akzent-rand); outline-offset: 1px; }

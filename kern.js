@@ -13,6 +13,7 @@ export const zustand = {
   ids: new Set(),
   spieler: new Map(),
   partien: new Map(),
+  notizen: new Map(),
   spiele: [],
   meta: {},
   geraet: { id: null, name: null },
@@ -52,6 +53,7 @@ function projiziereNeu() {
   const z = projiziere(zustand.ereignisse);
   zustand.spieler = z.spieler;
   zustand.partien = z.partien;
+  zustand.notizen = z.notizen;
 }
 
 export function neueId() {
@@ -79,6 +81,11 @@ export function definitionFuer(spielId, version) {
     .filter((s) => s.id === spielId)
     .sort((a, b) => (b.version || 1) - (a.version || 1))[0];
   return irgendeine || null;
+}
+
+/** Hausregeln und Notizen zu einem Spiel, geräteübergreifend im Journal. */
+export function notizFuer(spielId) {
+  return zustand.notizen.get(spielId) || null;
 }
 
 // --- Journal schreiben ---------------------------------------------------
