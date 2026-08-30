@@ -317,6 +317,10 @@ table.blatt.hoch .blattfeld { height: 40px; font-size: 1.05rem; }
 table.blatt.hoch tr.linie-unten th, table.blatt.hoch tr.linie-unten td {
   border-bottom: 3px solid var(--akzent-rand);
 }
+/* Grenze zwischen den Rosen-Abschnitten: gleiche Stärke, eigene Farbe. */
+table.blatt.hoch tr.abschnitt-unten th, table.blatt.hoch tr.abschnitt-unten td {
+  border-bottom: 3px solid var(--rand);
+}
 table.blatt.hoch tfoot td, table.blatt.hoch tfoot th {
   font-weight: 650; background: var(--grund); padding: 8px 0;
   font-variant-numeric: tabular-nums; border-top: 1px solid var(--text-sekundaer);
@@ -331,6 +335,7 @@ table.blatt.quer .rosen { border-bottom: 0.5px solid var(--rand); }
 table.blatt.quer .farbkopf { width: 44px; padding: 4px 2px; background: var(--kachel); cursor: pointer; }
 table.blatt.quer .blattfeld { height: 40px; font-size: 1rem; }
 table.blatt.quer .linie-rechts { border-right: 3px solid var(--akzent-rand); }
+table.blatt.quer .abschnitt-rechts { border-right: 3px solid var(--rand); }
 table.blatt.quer .reihenwert {
   width: 40px; font-weight: 650; background: var(--grund); font-variant-numeric: tabular-nums;
 }

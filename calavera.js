@@ -532,6 +532,20 @@ function abschnittVon(def, nr) {
   return (def.blatt.abschnitte || []).find((a) => nr >= a.von && nr <= a.bis) || null;
 }
 
+/**
+ * Felder, nach denen ein Abschnitt in den nächsten übergeht — also die Grenze
+ * zwischen den zwei und den drei Rosen. Sie wird kräftiger gezeichnet, damit
+ * erkennbar bleibt, wo die Anforderung wechselt.
+ */
+function abschnittsgrenzen(def) {
+  const abschnitte = def.blatt.abschnitte || [];
+  const grenzen = new Set();
+  for (const a of abschnitte) {
+    if (abschnitte.some((b) => b.von === a.bis + 1)) grenzen.add(a.bis);
+  }
+  return grenzen;
+}
+
 /** Rosen als Symbolgruppe, so kompakt wie im Originalblock. */
 function rosenZelle(rosen, zusatz = {}) {
   return h('td', {
@@ -557,6 +571,7 @@ function feldZelle(def, partie, ich, farbe, stand, nr, beendet, extra = '') {
 function rasterHoch(def, partie, ich, blatt, beendet) {
   const werte = def.blatt.punkte_je_feld;
   const linienNach = new Set(def.blatt.linien.map((l) => l.ab_feld));
+  const grenzen = abschnittsgrenzen(def);
 
   const kopfzeile = h('tr', {},
     h('th', { klasse: 'rosenkopf', title: 'Rosen zum Einfrieren', text: '✿' }),
@@ -573,7 +588,9 @@ function rasterHoch(def, partie, ich, blatt, beendet) {
         ? rosenZelle(abschnitt.rosen, { rowspan: String(abschnitt.bis - abschnitt.von + 1) })
         : null;
 
-    return h('tr', { klasse: linienNach.has(nr) ? 'linie-unten' : '' },
+    return h('tr', {
+      klasse: `${linienNach.has(nr) ? 'linie-unten' : ''}${grenzen.has(nr) ? ' abschnitt-unten' : ''}`.trim(),
+    },
       rosen,
       h('th', { klasse: `punktkopf ${zonenKlasse(def, nr)}`, text: String(wert) }),
       ...def.blatt.farben.map((farbe) => {
@@ -604,6 +621,9 @@ function rasterHoch(def, partie, ich, blatt, beendet) {
 function rasterQuer(def, partie, ich, blatt, beendet) {
   const werte = def.blatt.punkte_je_feld;
   const linienNach = new Set(def.blatt.linien.map((l) => l.ab_feld));
+  const grenzen = abschnittsgrenzen(def);
+  const trennklasse = (nr) =>
+    `${linienNach.has(nr) ? ' linie-rechts' : ''}${grenzen.has(nr) ? ' abschnitt-rechts' : ''}`;
 
   // Erste Kopfzeile: Rosen je Abschnitt, über die Felder zusammengefasst.
   const rosenzeile = h('tr', {}, h('th', { klasse: 'farbkopf rosenkopf', text: '✿' }));
@@ -613,13 +633,11 @@ function rasterQuer(def, partie, ich, blatt, beendet) {
     if (abschnitt) {
       rosenzeile.append(rosenZelle(abschnitt.rosen, {
         colspan: String(abschnitt.bis - abschnitt.von + 1),
-        klasse: `rosen${linienNach.has(abschnitt.bis) ? ' linie-rechts' : ''}`,
+        klasse: `rosen${trennklasse(abschnitt.bis)}`,
       }));
       feld = abschnitt.bis + 1;
     } else {
-      rosenzeile.append(h('td', {
-        klasse: `rosen leer${linienNach.has(feld) ? ' linie-rechts' : ''}`,
-      }));
+      rosenzeile.append(h('td', { klasse: `rosen leer${trennklasse(feld)}` }));
       feld++;
     }
   }
@@ -628,7 +646,7 @@ function rasterQuer(def, partie, ich, blatt, beendet) {
   const kopfzeile = h('tr', {},
     h('th', { klasse: 'farbkopf', text: '' }),
     ...werte.map((wert, i) => h('th', {
-      klasse: `feldkopf ${zonenKlasse(def, i + 1)}${linienNach.has(i + 1) ? ' linie-rechts' : ''}`,
+      klasse: `feldkopf ${zonenKlasse(def, i + 1)}${trennklasse(i + 1)}`,
     }, String(wert))),
     h('th', { klasse: 'reihenwert', text: 'Σ' }));
 
@@ -638,8 +656,7 @@ function rasterQuer(def, partie, ich, blatt, beendet) {
     return h('tr', {},
       farbKopf(def, partie, ich, blatt, farbe, beendet),
       ...werte.map((_, i) =>
-        feldZelle(def, partie, ich, farbe, stand, i + 1, beendet,
-          linienNach.has(i + 1) ? 'linie-rechts' : '')),
+        feldZelle(def, partie, ich, farbe, stand, i + 1, beendet, trennklasse(i + 1).trim())),
       h('td', {
         klasse: `reihenwert zahl${stand.eingefroren ? '' : ' offen'}`,
         title: stand.eingefroren ? 'gewertet' : 'zählt erst nach dem Einfrieren',
