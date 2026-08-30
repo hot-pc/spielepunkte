@@ -288,9 +288,27 @@ table.blatt .blattfeld.starr { cursor: default; opacity: 0.75; }
 table.blatt .punkte { background: #FBEBC8; }
 table.blatt .tod { background: #E2E0D8; }
 
+/* Rosen: Anzahl, die zum Einfrieren im jeweiligen Abschnitt nötig ist.
+   Wie im Original einmal je Abschnitt statt über jeder Zahl. */
+table.blatt .rosen {
+  background: var(--grund); color: var(--akzent-dunkel);
+  font-size: 0.72rem; font-weight: 650; line-height: 1.05; padding: 2px 0;
+  white-space: nowrap;
+}
+table.blatt .rosen.leer { background: var(--kachel); }
+table.blatt .rosenkopf {
+  background: var(--grund); color: var(--akzent-dunkel); font-size: 0.75rem; padding: 2px 0;
+}
+.rosenzahl { font-variant-numeric: tabular-nums; }
+.rose { font-size: 0.8rem; }
+
 /* Hochkant: vier Farbspalten, dreizehn Zeilen — wie der Originalblock. */
+table.blatt.hoch .rosen, table.blatt.hoch .rosenkopf { width: 26px; }
+/* Im Hochformat stehen Zahl und Blüte untereinander, das spart Breite. */
+table.blatt.hoch .rosen .rosenzahl, table.blatt.hoch .rosen .rose { display: block; }
+
 table.blatt.hoch .punktkopf {
-  width: 42px; font-size: 0.8rem; font-weight: 650; color: var(--text-sekundaer);
+  width: 38px; font-size: 0.8rem; font-weight: 650; color: var(--text-sekundaer);
   background: var(--grund); font-variant-numeric: tabular-nums; padding: 4px 0;
 }
 table.blatt.hoch .farbkopf { padding: 6px 0; background: var(--kachel); cursor: pointer; }
@@ -309,6 +327,7 @@ table.blatt.quer .feldkopf {
   font-size: 0.72rem; font-weight: 650; color: var(--text-sekundaer);
   padding: 4px 0; background: var(--grund); font-variant-numeric: tabular-nums;
 }
+table.blatt.quer .rosen { border-bottom: 0.5px solid var(--rand); }
 table.blatt.quer .farbkopf { width: 44px; padding: 4px 2px; background: var(--kachel); cursor: pointer; }
 table.blatt.quer .blattfeld { height: 40px; font-size: 1rem; }
 table.blatt.quer .linie-rechts { border-right: 3px solid var(--akzent-rand); }

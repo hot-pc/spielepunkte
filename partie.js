@@ -15,7 +15,8 @@ import {
 import { kurznamen } from './kurznamen.js';
 import { aktiveSpieler } from './projektion.js';
 import { ergebnis, endbedingungText } from './auswertung.js';
-import { erfassungBlatt, blaetter, punkte as blattPunkte, bonusKonflikte, bonusVerteilung } from './calavera.js';
+import { erfassungBlatt, blaetter, punkte as blattPunkte, bonusKonflikte, bonusVerteilung,
+  setzeAbschlussHandler } from './calavera.js';
 
 // --- Hilfen --------------------------------------------------------------
 
@@ -379,18 +380,20 @@ function erfassungKopf(partie, def) {
   );
 }
 
+export async function partieAbbrechen(partie) {
+  const sicher = await frage(
+    'Partie abbrechen?',
+    'Die Partie wird ohne Sieger festgehalten und zählt in keiner Auswertung mit. Die erfassten Werte bleiben erhalten.',
+    'Abbrechen bestätigen'
+  );
+  if (!sicher) return;
+  await schreibe('partie_abgebrochen', { partie_id: partie.id, end_zeitpunkt: new Date().toISOString() });
+  meldung('Partie abgebrochen.');
+  navigiere('start');
+}
+
 function abbrechenTaste(partie) {
-  return taste('Partie abbrechen', async () => {
-    const sicher = await frage(
-      'Partie abbrechen?',
-      'Die Partie wird ohne Sieger festgehalten und zählt in keiner Auswertung mit. Die erfassten Werte bleiben erhalten.',
-      'Abbrechen bestätigen'
-    );
-    if (!sicher) return;
-    await schreibe('partie_abgebrochen', { partie_id: partie.id, end_zeitpunkt: new Date().toISOString() });
-    meldung('Partie abgebrochen.');
-    navigiere('start');
-  }, 'schmal');
+  return taste('Partie abbrechen', () => partieAbbrechen(partie), 'schmal');
 }
 
 // Modus nur_sieger ---------------------------------------------------------
@@ -828,3 +831,6 @@ async function siegerFestlegen(partie, erg) {
   meldung(`${nameVon(gewaehlt)} als Sieger festgehalten.`);
   zeichne();
 }
+
+// Die Blattansicht braucht Zugriff auf Beenden und Abbrechen.
+setzeAbschlussHandler({ beenden: blattPartieBeenden, abbrechen: partieAbbrechen });

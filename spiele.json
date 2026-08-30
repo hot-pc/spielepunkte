@@ -17,7 +17,7 @@
     "schnellstart_wiederholung": "true = nach dem Speichern 'Nochmal, gleiche Spieler' anbieten",
     "serie_gruppieren": "derzeit ueberall false",
     "gleichstandsregel": "geteilte_plaetze_manuell",
-    "blatt": "Nur bei blatt_calavera: Aufbau des Spielblocks (Farben, Punkte je Feld, Todeszone, Bonuslinien)."
+    "blatt": "Nur bei blatt_calavera: Aufbau des Spielblocks (Farben, Punkte je Feld, Punkte- und Todeszone, Bonuslinien, Abschnitte mit der Zahl der Rosen, die zum Einfrieren nötig sind)."
   },
   "spiele": [
     {
@@ -193,7 +193,7 @@
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
       "gleichstandsregel": "geteilte_plaetze_manuell",
-      "hinweis_erfassung": "Jeder führt sein eigenes Blatt auf seinem Gerät. Eine Reihe zählt so viele Punkte, wie das am weitesten rechts gesetzte Kreuz angibt. Wer in die Todeszone kreuzt, friert die Reihe sofort ein.",
+      "hinweis_erfassung": "Jeder führt sein eigenes Blatt auf seinem Gerät. Eine Reihe zählt so viele Punkte, wie das am weitesten rechts gesetzte Kreuz angibt, und zwar erst nach dem Einfrieren. Zum Einfrieren in der Punktezone sind Rosen nötig: zwei bei 4/5/6, drei bei 8/10. Wer in die Todeszone kreuzt, friert die Reihe sofort ein.",
       "blatt": {
         "farben": [
           {
@@ -252,6 +252,18 @@
             "ab_feld": 9,
             "erster": 6,
             "nachfolger": 4
+          }
+        ],
+        "abschnitte": [
+          {
+            "von": 6,
+            "bis": 8,
+            "rosen": 2
+          },
+          {
+            "von": 9,
+            "bis": 10,
+            "rosen": 3
           }
         ]
       }

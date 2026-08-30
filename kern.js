@@ -6,7 +6,6 @@ import * as gh from './github.js';
 import { projiziere } from './projektion.js';
 import { baueExport, lesePaket } from './journal.js';
 import { abstand, namensform } from './regeln.js';
-import { meldung } from './ui.js';
 
 export const zustand = {
   ereignisse: [],
@@ -134,16 +133,73 @@ export function navigiere(name, p = {}, ersetzen = false) {
   zeichne();
 }
 
+let zuletztGezeichnet = null;
+
 export function zeichne() {
   const aufbau = ansichten.get(zustand.ansicht.name) || ansichten.get('start');
   const wurzel = document.getElementById('app');
+  const kennung = `${zustand.ansicht.name}|${JSON.stringify(zustand.ansicht.p || {})}`;
+  // Wird dieselbe Ansicht nur aufgefrischt — etwa nach einer Eingabe —,
+  // bleibt die Blickposition erhalten. Nur bei einem echten Wechsel wird
+  // nach oben gesprungen.
+  const gleicheAnsicht = kennung === zuletztGezeichnet;
+  const hoehe = window.scrollY;
+
   wurzel.replaceChildren();
   const inhalt = aufbau(zustand.ansicht.p || {});
   // Ansichten geben bedingte Teile als null zurück. Ohne Filter würde
   // append daraus einen Textknoten mit dem Wort "null" machen.
   const teile = (Array.isArray(inhalt) ? inhalt : [inhalt]).flat(3).filter(Boolean);
   wurzel.append(...teile);
-  window.scrollTo(0, 0);
+  zuletztGezeichnet = kennung;
+
+  window.scrollTo(0, gleicheAnsicht ? hoehe : 0);
+  wachHalten(zustand.ansicht.name === 'erfassung');
+}
+
+// --- Bildschirm wach halten ----------------------------------------------
+
+let wachSchloss = null;
+let wachBeobachtet = false;
+
+/**
+ * Hält den Bildschirm an, solange eine Partie erfasst wird — als würde
+ * laufend getippt. Die Einstellung des Geräts wird dabei nicht verändert;
+ * die Sperre gilt nur für diese Seite und endet mit ihr.
+ */
+export async function wachHalten(aktiv) {
+  try {
+    if (!('wakeLock' in navigator)) return false;
+
+    if (!aktiv) {
+      if (wachSchloss) await wachSchloss.release();
+      wachSchloss = null;
+      return false;
+    }
+    if (wachSchloss) return true;
+
+    wachSchloss = await navigator.wakeLock.request('screen');
+    wachSchloss.addEventListener('release', () => { wachSchloss = null; });
+
+    // Nach einem Wechsel in eine andere App gibt das System die Sperre frei;
+    // beim Zurückkommen wird sie neu angefordert.
+    if (!wachBeobachtet) {
+      wachBeobachtet = true;
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && zustand.ansicht.name === 'erfassung') {
+          wachHalten(true);
+        }
+      });
+    }
+    return true;
+  } catch {
+    wachSchloss = null;
+    return false;
+  }
+}
+
+export function bildschirmBleibtAn() {
+  return !!wachSchloss;
 }
 
 /**
@@ -328,20 +384,19 @@ function netzMeldung() {
 }
 
 /**
- * Abgleich im Hintergrund: beim Start und nach jeder beendeten Partie.
- * Fehler bleiben still, damit am Spieltisch nichts stört; nur neue
- * Ereignisse werden gemeldet.
+ * Abgleich im Hintergrund: beim Start, während einer laufenden Partie und
+ * nach deren Ende. Er meldet sich nie von selbst — weder bei Erfolg noch bei
+ * einem Fehler. Am Spieltisch wäre eine Einblendung nach jedem übernommenen
+ * Stand nur störend; sichtbar wird das Ergebnis dort, wo es hingehört: in den
+ * Blättern und im Stand. Wer es genau wissen will, nutzt „Jetzt abgleichen“.
  */
 export async function abgleichStill() {
   if (!zugangEingerichtet() || !zustand.geraet.name) return null;
-  let ergebnis = null;
   try {
-    ergebnis = await abgleichen();
+    return await abgleichen();
   } catch {
     return null;
   }
-  if (ergebnis.ok && ergebnis.neu) meldung(`${ergebnis.neu} neue Ereignisse übernommen.`);
-  return ergebnis;
 }
 
 export function aehnlicheNamen() {

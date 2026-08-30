@@ -7,8 +7,19 @@
 // roten Linien gibt es Bonuspunkte, wenn alle vier Farben sie erreicht haben —
 // mehr für den ersten Spieler, weniger für alle danach.
 
-import { zustand, schreibe, zeichne, merke, nameVon, abgleichStill, zeichneSanft } from './kern.js';
+import { zustand, schreibe, zeichne, merke, nameVon, abgleichStill, zeichneSanft,
+  bildschirmBleibtAn } from './kern.js';
 import { h, kachel, kopf, taste, meldung, dialog, frage } from './ui.js';
+
+// Die Beenden- und Abbrechen-Logik liegt in partie.js. Sie wird beim Laden
+// dort angemeldet, damit calavera.js partie.js nicht importieren muss.
+let beendeHandler = null;
+let abbrechenHandler = null;
+
+export function setzeAbschlussHandler({ beenden, abbrechen }) {
+  beendeHandler = beenden;
+  abbrechenHandler = abbrechen;
+}
 
 // --- Zustand eines Blattes ----------------------------------------------
 
@@ -280,6 +291,9 @@ export function erfassungBlatt(partie, def) {
     gezeigterSpieler = null;
   }
 
+  // Nach dem Aufbau prüfen, ob eine Linie neu überschritten wurde.
+  setTimeout(() => meldeUeberschritteneLinien(def, partie, verteilung, ich), 0);
+
   if (!ich || !partie.teilnehmer.includes(ich)) {
     return [
       kopf(partie.spiel_name || def.name, `${partie.teilnehmer.length} Spieler`, () => zurueck()),
@@ -309,16 +323,24 @@ export function erfassungBlatt(partie, def) {
     kopf(partie.spiel_name || def.name,
       nurAnsehen ? `Blatt von ${nameVon(zeigen)}` : `Dein Blatt · ${nameVon(ich)}`,
       () => zurueck()),
+    // Das Blatt steht ganz oben: nach einer Eingabe bleibt es sichtbar,
+    // ohne dass gescrollt werden muss. Alles Weitere folgt darunter.
+    kachel(
+      h('div', { klasse: 'blatt-huelle' }, blattRaster(def, partie, zeigen, gezeigtesBlatt, gesperrt))
+    ),
     blattWahl(partie, ich, zeigen),
     kachel(
-      h('div', { klasse: 'blatt-huelle' }, blattRaster(def, partie, zeigen, gezeigtesBlatt, gesperrt)),
-      h('p', { klasse: 'klein', style: 'margin:8px 0 10px', text: nurAnsehen
+      h('p', { klasse: 'klein', style: 'margin-bottom:10px', text: nurAnsehen
         ? `Nur zum Ansehen. Stand vom letzten Abgleich${zustand.meta.letzter_abgleich
             ? ` um ${new Date(zustand.meta.letzter_abgleich).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : ''}.`
         : 'Auf das Feld tippen, bis zu dem du gekreuzt hast. Nochmal auf dasselbe Feld nimmt ' +
           'ein Kreuz zurück. Über den Farbpunkt frierst du eine Reihe ein — erst dann zählt ' +
           'sie. Ab Feld 11 friert sie von selbst ein.' }),
-      querformatTaste()
+      querformatTaste(),
+      bildschirmBleibtAn()
+        ? h('p', { klasse: 'klein', style: 'margin-top:10px', text:
+            'Der Bildschirm bleibt an, solange das Blatt geöffnet ist.' })
+        : null
     ),
     bonusKachel(def, partie, zeigen, gezeigtesBlatt, wertung, gesperrt),
     kachel(
@@ -336,6 +358,58 @@ export function erfassungBlatt(partie, def) {
     uebersichtKachel(def, partie, alle, ich, verteilung),
     nurAnsehen ? null : abschlussKachel(def, partie, ich, gezeigtesBlatt, alle, beendet),
   ];
+}
+
+// --- Meldung, wenn eine Bonuslinie überschritten wurde -------------------
+
+let meldungLaeuft = false;
+
+/**
+ * Sobald jemand als Erster alle vier Farben über eine Linie gebracht hat,
+ * bekommt jedes Gerät einmal einen Hinweis. Was schon gemeldet wurde, steht
+ * gerätelokal in den Merkfeldern — jeder soll die Meldung genau einmal sehen,
+ * unabhängig davon, wann sein Abgleich sie erreicht.
+ */
+async function meldeUeberschritteneLinien(def, partie, verteilung, ich) {
+  if (partie.status !== 'laufend' || meldungLaeuft) return;
+
+  const schluessel = `linien_gemeldet_${partie.id}`;
+  const gemeldet = new Set(zustand.meta[schluessel] || []);
+
+  const offen = [];
+  for (const linie of def.blatt.linien) {
+    if (gemeldet.has(linie.nr)) continue;
+    const eintrag = [...verteilung.entries()]
+      .find(([, meine]) => meine.get(linie.nr) && meine.get(linie.nr).status === 'erster');
+    if (eintrag) offen.push({ linie, spieler: eintrag[0] });
+  }
+  if (!offen.length) return;
+
+  meldungLaeuft = true;
+  try {
+    for (const { linie, spieler } of offen) {
+      const selbst = spieler === ich;
+      await dialog({
+        titel: `Linie ${linie.nr} überschritten`,
+        inhalt: [
+          h('p', {}, selbst
+            ? `Du hast als Erster alle vier Farben über Linie ${linie.nr} gebracht.`
+            : `${nameVon(spieler)} hat als Erste oder Erster alle vier Farben über ` +
+              `Linie ${linie.nr} gebracht.`),
+          h('p', { klasse: 'klein' }, selbst
+            ? `Damit sind dir ${linie.erster} Bonuspunkte sicher. Für alle anderen sind es ` +
+              `jetzt noch ${linie.nachfolger}.`
+            : `Für ${nameVon(spieler)} sind das ${linie.erster} Bonuspunkte. Wer die Linie ` +
+              `noch erreicht, bekommt ${linie.nachfolger}.`),
+        ],
+        tasten: [{ text: 'OK', art: 'haupt' }],
+      });
+      gemeldet.add(linie.nr);
+      await merke(schluessel, [...gemeldet]);
+    }
+  } finally {
+    meldungLaeuft = false;
+  }
 }
 
 /** Umschalter zwischen den Blättern aller Mitspieler. */
@@ -453,6 +527,19 @@ async function reiheUmschalten(partie, def, ich, farbe, stand) {
   await setzeStand(partie, ich, farbe.id, stand.felder, true);
 }
 
+/** Abschnitt, in dem ein Feld liegt — bestimmt die Zahl der nötigen Rosen. */
+function abschnittVon(def, nr) {
+  return (def.blatt.abschnitte || []).find((a) => nr >= a.von && nr <= a.bis) || null;
+}
+
+/** Rosen als Symbolgruppe, so kompakt wie im Originalblock. */
+function rosenZelle(rosen, zusatz = {}) {
+  return h('td', {
+    klasse: 'rosen', title: `Zum Einfrieren in diesem Abschnitt ${rosen} Rosen nötig`,
+    ...zusatz,
+  }, h('span', { klasse: 'rosenzahl', text: String(rosen) }), h('span', { klasse: 'rose', text: '✿' }));
+}
+
 function zonenKlasse(def, nr) {
   return nr >= def.blatt.todeszone_ab ? 'tod' : nr >= def.blatt.punktezone_ab ? 'punkte' : 'start';
 }
@@ -472,12 +559,22 @@ function rasterHoch(def, partie, ich, blatt, beendet) {
   const linienNach = new Set(def.blatt.linien.map((l) => l.ab_feld));
 
   const kopfzeile = h('tr', {},
+    h('th', { klasse: 'rosenkopf', title: 'Rosen zum Einfrieren', text: '✿' }),
     h('th', { klasse: 'punktkopf', text: 'Pkt' }),
     ...def.blatt.farben.map((f) => farbKopf(def, partie, ich, blatt, f, beendet)));
 
   const zeilen = werte.map((wert, i) => {
     const nr = i + 1;
+    const abschnitt = abschnittVon(def, nr);
+    // Die Rosenzelle steht einmal je Abschnitt und reicht über dessen Zeilen.
+    const rosen = !abschnitt
+      ? h('td', { klasse: 'rosen leer' })
+      : abschnitt.von === nr
+        ? rosenZelle(abschnitt.rosen, { rowspan: String(abschnitt.bis - abschnitt.von + 1) })
+        : null;
+
     return h('tr', { klasse: linienNach.has(nr) ? 'linie-unten' : '' },
+      rosen,
       h('th', { klasse: `punktkopf ${zonenKlasse(def, nr)}`, text: String(wert) }),
       ...def.blatt.farben.map((farbe) => {
         const stand = blatt.farben[farbe.id] || { felder: 0, eingefroren: false };
@@ -486,6 +583,7 @@ function rasterHoch(def, partie, ich, blatt, beendet) {
   });
 
   const fusszeile = h('tr', { klasse: 'summenzeile' },
+    h('th', { klasse: 'rosen leer' }),
     h('th', { klasse: 'punktkopf', text: 'Σ' }),
     ...def.blatt.farben.map((f) => {
       const stand = blatt.farben[f.id] || { felder: 0, eingefroren: false };
@@ -506,6 +604,26 @@ function rasterHoch(def, partie, ich, blatt, beendet) {
 function rasterQuer(def, partie, ich, blatt, beendet) {
   const werte = def.blatt.punkte_je_feld;
   const linienNach = new Set(def.blatt.linien.map((l) => l.ab_feld));
+
+  // Erste Kopfzeile: Rosen je Abschnitt, über die Felder zusammengefasst.
+  const rosenzeile = h('tr', {}, h('th', { klasse: 'farbkopf rosenkopf', text: '✿' }));
+  let feld = 1;
+  while (feld <= werte.length) {
+    const abschnitt = abschnittVon(def, feld);
+    if (abschnitt) {
+      rosenzeile.append(rosenZelle(abschnitt.rosen, {
+        colspan: String(abschnitt.bis - abschnitt.von + 1),
+        klasse: `rosen${linienNach.has(abschnitt.bis) ? ' linie-rechts' : ''}`,
+      }));
+      feld = abschnitt.bis + 1;
+    } else {
+      rosenzeile.append(h('td', {
+        klasse: `rosen leer${linienNach.has(feld) ? ' linie-rechts' : ''}`,
+      }));
+      feld++;
+    }
+  }
+  rosenzeile.append(h('th', { klasse: 'reihenwert', text: '' }));
 
   const kopfzeile = h('tr', {},
     h('th', { klasse: 'farbkopf', text: '' }),
@@ -529,7 +647,7 @@ function rasterQuer(def, partie, ich, blatt, beendet) {
   });
 
   return h('table', { klasse: 'blatt quer' },
-    h('thead', {}, kopfzeile),
+    h('thead', {}, rosenzeile, kopfzeile),
     h('tbody', {}, ...zeilen));
 }
 
@@ -551,6 +669,19 @@ async function tippeFeld(partie, def, ich, farbe, stand, nr) {
 
   // Nochmal auf das zuletzt gesetzte Feld nimmt ein Kreuz zurück.
   const neu = nr === stand.felder ? nr - 1 : nr;
+
+  // Jede Rücknahme wird bestätigt — versehentliches Antippen soll keine
+  // bereits gesetzten Kreuze löschen.
+  if (neu < stand.felder) {
+    const anzahl = stand.felder - neu;
+    const bestaetigt = await frage(
+      anzahl === 1 ? 'Kreuz zurücknehmen?' : `${anzahl} Kreuze zurücknehmen?`,
+      `${farbe.name} geht von ${stand.felder} auf ${neu} ${neu === 1 ? 'Kreuz' : 'Kreuze'} zurück.`,
+      'OK'
+    );
+    if (!bestaetigt) return;
+  }
+
   const inTodeszone = neu >= def.blatt.todeszone_ab;
   await setzeStand(partie, ich, farbe.id, neu, inTodeszone);
   if (inTodeszone) meldung(`${farbe.name} ist in der Todeszone und damit eingefroren.`);
@@ -613,6 +744,8 @@ function uebersichtKachel(def, partie, alle, ich, verteilung) {
       'Einen Namen antippen, um das Blatt dieses Spielers anzusehen. ' +
       'Die Stände kommen beim Abgleich dazu.' }),
     h('div', { style: 'margin-top:10px' },
+      // Selbst angestoßen: hier ist eine Rückmeldung erwünscht, aber nur,
+      // wenn etwas nicht geklappt hat.
       taste('Stände holen', async () => {
         const ergebnis = await abgleichStill();
         if (ergebnis && !ergebnis.ok) meldung(ergebnis.meldung);
@@ -632,6 +765,8 @@ function abschlussKachel(def, partie, ich, meinBlatt, alle, beendet) {
   const alleFarbenZu = def.blatt.farben.every((f) => meinBlatt.farben[f.id]?.eingefroren);
   const offeneBlaetter = partie.teilnehmer.filter((id) => !(alle.get(id) || {}).fertig);
 
+  const alleFertig = offeneBlaetter.length === 0;
+
   return kachel(
     alleFarbenZu && !meinBlatt.fertig
       ? h('p', { klasse: 'hinweis', style: 'margin-bottom:12px', text:
@@ -645,13 +780,17 @@ function abschlussKachel(def, partie, ich, meinBlatt, alle, beendet) {
         });
         zeichne();
         abgleichStill().then((e) => { if (e && e.ok) zeichneSanft(); });
-      }, meinBlatt.fertig ? 'schmal' : 'haupt schmal')),
-    !meinBlatt.fertig
-      ? h('p', { klasse: 'klein', style: 'margin-top:10px', text:
-          'Mit „Blatt fertig" wird dein Stand für die anderen sichtbar.' })
-      : h('p', { klasse: 'klein', style: 'margin-top:10px', text:
-          offeneBlaetter.length
-            ? `Es fehlen noch: ${offeneBlaetter.map(nameVon).join(', ')}`
-            : 'Alle Blätter sind fertig. Die Partie kann beendet werden.' })
+      }, meinBlatt.fertig ? 'schmal' : 'haupt schmal'),
+      // Beenden kann jeder — die Partie gilt für alle. Vorher wird gewarnt,
+      // wenn noch ein Blatt offen ist.
+      taste('Partie beenden', () => beendeHandler && beendeHandler(partie, def),
+        alleFertig ? 'haupt schmal' : 'schmal')),
+    h('p', { klasse: 'klein', style: 'margin-top:10px', text: !meinBlatt.fertig
+      ? 'Mit „Blatt fertig" wird dein Stand für die anderen sichtbar.'
+      : alleFertig
+        ? 'Alle Blätter sind fertig. Die Partie kann beendet werden.'
+        : `Es fehlen noch: ${offeneBlaetter.map(nameVon).join(', ')}` }),
+    h('div', { style: 'margin-top:10px' },
+      taste('Partie abbrechen', () => abbrechenHandler && abbrechenHandler(partie), 'schmal'))
   );
 }

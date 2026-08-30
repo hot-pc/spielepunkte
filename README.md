@@ -65,16 +65,28 @@ Ablauf am Tisch:
    (gespeichert in `mein_spieler`, gerätelokal, nicht im Journal).
 3. Jeder kreuzt auf seinem Blatt. Antippen eines Feldes setzt den Stand bis
    dorthin, nochmaliges Antippen desselben Feldes nimmt ein Kreuz zurück.
+   Jede Rücknahme — auch das Zurückspringen um mehrere Felder — wird mit OK
+   bestätigt, damit ein versehentliches Antippen keine Kreuze löscht.
    Über die Knopfreihe unter dem Kopf — oder durch Antippen eines Namens in
    der Übersicht — lässt sich das Blatt jedes Mitspielers ansehen. Fremde
    Blätter sind schreibgeschützt und zeigen den Stand des letzten Abgleichs.
 4. „Stände holen" holt die Blätter der anderen; „Blatt fertig" meldet den
-   eigenen Stand. Beim Beenden wird gewarnt, wenn noch Blätter offen sind.
+   eigenen Stand. **„Partie beenden"** steht in derselben Kachel und kann von
+   jedem Gerät ausgelöst werden — die Partie gilt für alle. Ist noch ein Blatt
+   offen oder beansprucht mehr als einer eine Bonuslinie von Hand als Erster,
+   wird vorher gewarnt. Daneben liegt „Partie abbrechen".
 
 **Aufbau des Blocks** steht vollständig in `spiele.json` unter `blatt`: vier
 Farben, 13 Felder mit den Punktwerten `0 0 0 0 0 4 5 6 8 10 4 0 -3`,
 Punktezone ab Feld 6, Todeszone ab Feld 11, drei Bonuslinien nach den
-Feldern 3, 6 und 9 mit 4/2, 5/3 und 6/4 Punkten.
+Feldern 3, 6 und 9 mit 4/2, 5/3 und 6/4 Punkten sowie die `abschnitte` mit der
+Zahl der Rosen, die zum Einfrieren nötig sind: zwei bei den Feldern 6 bis 8
+(4/5/6), drei bei den Feldern 9 und 10 (8/10).
+
+Die Rosen erscheinen wie auf dem Papier **einmal je Abschnitt** — hochkant in
+einer schmalen Spalte links, die über die Zeilen des Abschnitts zusammengefasst
+ist, quer als Kopfzeile über den zugehörigen Spalten. Das kostet rund 26 px
+Breite; hochkant bleiben damit etwa 60 bis 68 px je Feld.
 
 **Wertung:** Eine Reihe zählt den Punktwert des am weitesten rechts gesetzten
 Kreuzes — **aber erst, wenn sie eingefroren ist**. Solange eine Reihe offen
@@ -106,11 +118,31 @@ Damit das trägt, halten die Geräte während einer laufenden Partie den Abgleic
 aufrecht: alle 20 Sekunden, solange ein Blatt geöffnet ist, und gebündelt vier
 Sekunden nach der letzten eigenen Eingabe.
 
+**Meldung am Tisch:** Sobald jemand als Erster alle vier Farben über eine
+Linie gebracht hat, erscheint auf **jedem** Gerät ein Hinweis mit der Nummer
+der Linie, dem Namen und beiden Bonuswerten; er wird mit OK bestätigt. Was
+bereits gemeldet wurde, steht gerätelokal in den Merkfeldern
+(`linien_gemeldet_<partie>`), damit jeder die Meldung genau einmal sieht — auch
+wenn sein Abgleich sie erst später erreicht.
+
 Antippen des Bonusfeldes setzt den Wert **von Hand** (als Erster → nach
 jemandem → wieder automatisch); Handeinträge haben Vorrang und sind in der
 Liste gekennzeichnet. Nur sie können sich widersprechen — beim Beenden weist
 die App darauf hin, wenn zwei Spieler dieselbe Linie von Hand als Erster
 beanspruchen.
+
+**Anordnung:** Das Blatt steht ganz oben, direkt unter dem Kopf. Umschalter,
+Bonuslinien, Stand und Knöpfe folgen darunter, damit nach einer Eingabe nichts
+verrutscht. Zusätzlich hält die App beim Auffrischen derselben Ansicht die
+Blickposition — nach oben gesprungen wird nur bei einem echten
+Ansichtswechsel.
+
+**Bildschirm bleibt an:** Solange eine Partie erfasst wird, fordert die App
+eine Bildschirmsperre über die Wake-Lock-Schnittstelle an — der Bildschirm
+verhält sich, als würde laufend getippt. Die Geräteeinstellung bleibt
+unverändert; die Sperre gilt nur für diese Seite, endet beim Verlassen der
+Erfassung und wird nach einem Wechsel in eine andere App beim Zurückkommen
+neu angefordert. Unterstützt der Browser das nicht, läuft alles wie bisher.
 
 **Zwei Ausrichtungen:** Hochkant zeigt die App vier Farbspalten und dreizehn
 Zeilen — wie der Originalblock; die Felder sind dort rund 70 px breit und gut
@@ -188,8 +220,13 @@ liegen davon getrennt.
 - Ohne Netz passiert nichts: der lokale Bestand bleibt unberührt, der Abgleich
   wird beim nächsten Versuch nachgeholt.
 
-Automatisch abgeglichen wird beim Start der App und nach jeder beendeten
-Partie. Zusätzlich gibt es unter Daten den Knopf „Jetzt abgleichen“.
+Automatisch abgeglichen wird beim Start der App, während einer laufenden
+Calavera-Partie und nach jeder beendeten Partie. **Der Abgleich im Hintergrund
+meldet sich nie von selbst** — weder bei Erfolg noch bei einem Fehler; am
+Spieltisch wäre eine Einblendung nach jedem übernommenen Stand nur störend.
+Sichtbar wird das Ergebnis dort, wo es hingehört: in den Blättern, im Stand und
+auf dem Startbildschirm. Wer es genau wissen will, nutzt unter Daten den Knopf
+„Jetzt abgleichen“ — der zeigt weiterhin einen vollständigen Bericht.
 
 ### Zugang einrichten (einmal je Gerät)
 
