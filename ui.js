@@ -21,12 +21,23 @@ export function kachel(...kinder) {
   return h('section', { klasse: 'kachel' }, ...kinder);
 }
 
-export function kopf(titel, unterzeile, zurueck) {
+/**
+ * Kopfbereich. `rechts` erscheint in der Unterzeile rechtsbündig, in
+ * derselben Schrift wie die Unterzeile selbst — dort steht auf dem
+ * Startbildschirm die Version.
+ */
+export function kopf(titel, unterzeile, zurueck, rechts) {
   return h(
     'header',
     { klasse: 'kachel kopf' },
     zurueck ? h('button', { klasse: 'zurueck', 'aria-label': 'Zurück', onclick: zurueck }, '‹') : null,
-    h('div', {}, h('h1', { text: titel }), unterzeile ? h('div', { klasse: 'unterzeile', text: unterzeile }) : null)
+    h('div', { klasse: 'kopftext' },
+      h('h1', { text: titel }),
+      unterzeile || rechts
+        ? h('div', { klasse: 'unterzeile' },
+            h('span', { klasse: 'unterzeile-links', text: unterzeile || '' }),
+            rechts ? h('span', { klasse: 'unterzeile-rechts', text: rechts }) : null)
+        : null)
   );
 }
 

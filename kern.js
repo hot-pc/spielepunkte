@@ -9,7 +9,7 @@ import { abstand, namensform } from './regeln.js';
 
 // Muss mit VERSION in sw.js übereinstimmen. Weicht die Anzeige im
 // Datenbereich davon ab, läuft auf dem Gerät noch eine ältere Fassung.
-export const APP_VERSION = 'v24';
+export const APP_VERSION = 'v28';
 
 export const zustand = {
   ereignisse: [],

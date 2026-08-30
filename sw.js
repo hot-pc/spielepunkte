@@ -6,7 +6,7 @@
 // WICHTIG bei Aenderungen: VERSION erhoehen, sonst nehmen die Geraete die
 // neuen Dateien nicht an. Neue Dateien zusaetzlich in DATEIEN eintragen.
 
-const VERSION = 'v24';
+const VERSION = 'v28';
 const CACHE = `spielepunkte-${VERSION}`;
 
 const DATEIEN = [
@@ -34,9 +34,17 @@ const DATEIEN = [
 ];
 
 self.addEventListener('install', (ereignis) => {
-  ereignis.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(DATEIEN))
-  );
+  ereignis.waitUntil((async () => {
+    const cache = await caches.open(CACHE);
+    // cache: 'reload' umgeht den HTTP-Zwischenspeicher des Browsers. Ohne das
+    // holt die Installation womoeglich Dateien, die GitHub Pages noch aus
+    // seinem eigenen Zwischenspeicher liefert — die neue Fassung enthielte
+    // dann alte Dateien.
+    await Promise.all(DATEIEN.map(async (datei) => {
+      const antwort = await fetch(new Request(datei, { cache: 'reload' }));
+      if (antwort && antwort.ok) await cache.put(datei, antwort);
+    }));
+  })());
 });
 
 self.addEventListener('activate', (ereignis) => {
@@ -65,18 +73,13 @@ self.addEventListener('fetch', (ereignis) => {
   if (anfrage.method !== 'GET') return;
   if (url.origin !== self.location.origin) return;
 
+  // Der Zwischenspeicher gehoert genau zu dieser VERSION und wird waehrend
+  // ihrer Laufzeit nicht mehr veraendert. Frueher wurde er im Hintergrund
+  // aufgefrischt — dadurch lieferte die App beim naechsten Start die Dateien
+  // des vorigen Besuchs aus und hinkte dauerhaft eine Aenderung hinterher.
   ereignis.respondWith(
     caches.match(anfrage, { ignoreSearch: true }).then((treffer) => {
-      if (treffer) {
-        // Im Hintergrund auffrischen, damit die naechste Installation
-        // aktuelle Dateien hat. Fehler sind ohne Auswirkung.
-        fetch(anfrage)
-          .then((antwort) => {
-            if (antwort && antwort.ok) caches.open(CACHE).then((c) => c.put(anfrage, antwort.clone()));
-          })
-          .catch(() => {});
-        return treffer;
-      }
+      if (treffer) return treffer;
       return fetch(anfrage).catch(() => caches.match('index.html'));
     })
   );

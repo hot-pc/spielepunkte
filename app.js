@@ -25,7 +25,9 @@ registriereAnsicht('start', () => {
   const eingerichtet = zugangEingerichtet();
 
   return [
-    kopf('Emelys Spielewelt', zustand.geraet.name ? `Gerät: ${zustand.geraet.name}` : null),
+    kopf('Emelys Spielewelt',
+      zustand.geraet.name ? `Gerät: ${zustand.geraet.name}` : null,
+      null, APP_VERSION),
 
     kachel(taste('Neue Partie', () => navigiere('spielwahl'), 'haupt')),
 

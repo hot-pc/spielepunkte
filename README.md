@@ -26,7 +26,7 @@ Adresse: https://hot-pc.github.io/spielepunkte/
 | `db.js` | IndexedDB |
 | `ui.js` | DOM-Helfer, Dialoge, Zifferntastatur |
 | `github.js` | Zugriff auf das Daten-Repository (Contents-API) |
-| `sw.js` | Service Worker (Offlinebetrieb) |
+| `sw.js` | Service Worker (Offlinebetrieb, versionierter Zwischenspeicher) |
 | `manifest.webmanifest`, `icon-*.png` | Installation auf dem Startbildschirm |
 
 ## Infos und Hausregeln je Spiel
@@ -177,11 +177,21 @@ Neu hinzugefügte Dateien müssen zusätzlich in der Liste `DATEIEN` in `sw.js`
 eingetragen werden.
 
 `APP_VERSION` in `kern.js` muss denselben Wert haben wie `VERSION` in `sw.js`.
+Das Auslieferungspaket trägt dieselbe Nummer im Dateinamen
+(`spielepunkte-v25.zip`), damit beim Hochladen kein älterer Stand erwischt
+wird.
 Unter **Daten → Dieses Gerät** steht die geladene Version; der Knopf
 **„Nach neuer Version suchen"** vergleicht sie mit der, die der Service Worker
 tatsächlich ausliefert. Weichen beide ab, läuft auf dem Gerät noch eine ältere
 Fassung aus dem Zwischenspeicher — der Knopf holt sie dann nach. So lässt sich
 sofort feststellen, ob eine Änderung wirklich angekommen ist.
+
+Der Zwischenspeicher gehört fest zu einer Version und wird während ihrer
+Laufzeit **nicht** mehr verändert. Eine frühere Fassung frischte ihn im
+Hintergrund auf; dadurch lieferte die App beim nächsten Start die Dateien des
+vorigen Besuchs aus und hinkte dauerhaft eine Änderung hinterher. Die
+Installation holt die Dateien zudem mit `cache: 'reload'`, umgeht also den
+Zwischenspeicher des Browsers und den von GitHub Pages.
 
 Beim nächsten App-Start erscheint dann der Hinweis „Eine neue Version ist
 bereit“ mit der Schaltfläche „Neu laden“. Während einer laufenden Partie wird

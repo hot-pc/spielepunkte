@@ -56,7 +56,13 @@ body {
 /* --- Kopfbereich --- */
 .kopf { display: flex; align-items: center; gap: 12px; }
 .kopf h1 { font-size: 1.22rem; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
-.kopf .unterzeile { font-size: 0.82rem; color: var(--text-sekundaer); margin-top: 2px; }
+.kopf .kopftext { flex: 1 1 auto; min-width: 0; }
+.kopf .unterzeile {
+  font-size: 0.82rem; color: var(--text-sekundaer); margin-top: 2px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+}
+.kopf .unterzeile-links { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.kopf .unterzeile-rechts { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 .zurueck {
   border: 0.5px solid var(--rand); background: var(--kachel); color: var(--text);
   border-radius: var(--radius-klein); width: 40px; height: 40px; flex: 0 0 40px;
@@ -269,6 +275,8 @@ table.blatt th, table.blatt td { border: 0.5px solid var(--rand); text-align: ce
   display: inline-block; width: 18px; height: 18px; border-radius: 50%;
   vertical-align: middle; border: 1px solid rgba(0, 0, 0, 0.15);
 }
+.farbpunkt.klein { width: 14px; height: 14px; }
+
 .frost { font-size: 0.7rem; color: var(--text-sekundaer); margin-left: 1px; }
 table.blatt .farbkopf.zu { background: var(--grund); }
 

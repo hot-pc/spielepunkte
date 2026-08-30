@@ -771,14 +771,20 @@ registriereAnsicht('ergebnis', ({ partieId }) => {
           h('table', { klasse: 'daten' },
             h('thead', {}, h('tr', {},
               h('th', { text: 'Spieler' }),
-              ...def.blatt.farben.map((f) => h('th', { text: f.name.slice(0, 3) })),
-              h('th', { text: 'Bonus' }))),
+              // Farbpunkte statt abgekürzter Namen — dieselbe Kennzeichnung
+              // wie auf dem Blatt selbst.
+              ...def.blatt.farben.map((f) =>
+                h('th', { title: f.name },
+                  h('span', { klasse: 'farbpunkt klein', style: `background:${f.farbe}` }))),
+              h('th', { text: 'Bonus' }),
+              h('th', { text: 'Σ' }))),
             h('tbody', {}, ...partie.teilnehmer.map((id) => {
               const w = blattPunkte(def, erg.blaetter.get(id), bonusVerteilung(def, partie).get(id), true);
               return h('tr', {},
                 h('td', { text: nameVon(id) }),
                 ...def.blatt.farben.map((f) => h('td', { klasse: 'zahl', text: String(w.reihen[f.id]) })),
-                h('td', { klasse: 'zahl', text: String(w.bonus) }));
+                h('td', { klasse: 'zahl', text: String(w.bonus) }),
+                h('td', { klasse: 'zahl', text: String(w.gesamt) }));
             })))
         )
       : null,
