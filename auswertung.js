@@ -15,7 +15,8 @@ export function ergebnis(def, partie) {
     const summen = new Map();
     for (const id of partie.teilnehmer) {
       const blatt = alle.get(id);
-      summen.set(id, blatt ? blattPunkte(def, blatt, verteilung.get(id)).gesamt : 0);
+      // Beim Ergebnis zählen auch die Reihen, die niemand mehr einfrieren kann.
+      summen.set(id, blatt ? blattPunkte(def, blatt, verteilung.get(id), true).gesamt : 0);
     }
     const stand = { ...LEERER_STAND, summen };
     const pl = platzierung(def, partie.teilnehmer, stand);

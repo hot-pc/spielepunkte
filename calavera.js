@@ -109,18 +109,31 @@ export function bonusVerteilung(def, partie) {
   return ergebnis;
 }
 
-/** Punkte eines Blattes: vier Reihen plus Bonus.
- *  `automatik` ist die von der App ermittelte Verteilung für diesen Spieler;
- *  ein von Hand gesetzter Status hat immer Vorrang. */
-export function punkte(def, blatt, automatik = null) {
+/**
+ * Punkte eines Blattes: vier Reihen plus Bonus.
+ *
+ * Eine Reihe zählt erst, wenn sie eingefroren ist — vorher kann der Spieler
+ * dort weiter kreuzen und der Wert steht noch nicht fest. Erst zum Spielende
+ * werden auch die offenen Reihen gewertet; dafür wird `alleWerten` gesetzt.
+ *
+ * `automatik` ist die von der App ermittelte Bonusverteilung für diesen
+ * Spieler; ein von Hand gesetzter Status hat immer Vorrang.
+ */
+export function punkte(def, blatt, automatik = null, alleWerten = false) {
   const werte = def.blatt.punkte_je_feld;
   const reihen = {};
+  const offeneReihen = {};
   let summeReihen = 0;
+  let nochOffen = 0;
+
   for (const f of def.blatt.farben) {
-    const stand = blatt.farben[f.id]?.felder || 0;
-    const wert = stand > 0 ? werte[stand - 1] : 0;
-    reihen[f.id] = wert;
-    summeReihen += wert;
+    const zeile = blatt.farben[f.id] || { felder: 0, eingefroren: false };
+    const wert = zeile.felder > 0 ? werte[zeile.felder - 1] : 0;
+    const zaehlt = zeile.eingefroren || alleWerten;
+    reihen[f.id] = zaehlt ? wert : 0;
+    offeneReihen[f.id] = zaehlt ? null : wert;
+    if (zaehlt) summeReihen += wert;
+    else nochOffen += wert;
   }
 
   let bonus = 0;
@@ -139,7 +152,11 @@ export function punkte(def, blatt, automatik = null) {
     });
   }
 
-  return { reihen, summeReihen, bonus, bonusZeilen, gesamt: summeReihen + bonus };
+  return {
+    reihen, offeneReihen, summeReihen, nochOffen, bonus, bonusZeilen,
+    gesamt: summeReihen + bonus,
+    alleGewertet: alleWerten || def.blatt.farben.every((f) => blatt.farben[f.id]?.eingefroren),
+  };
 }
 
 /** Wer beansprucht dieselbe Linie mehrfach als Erster? */
@@ -157,6 +174,10 @@ export function bonusKonflikte(def, alleBlaetter) {
 }
 
 // --- Welcher Spieler bin ich? -------------------------------------------
+
+// Welches Blatt gerade angezeigt wird. null bedeutet: das eigene.
+let gezeigterSpieler = null;
+let gezeigtePartie = null;
 
 export function meinSpieler() {
   return zustand.meta.mein_spieler || null;
@@ -251,6 +272,13 @@ export function erfassungBlatt(partie, def) {
   const verteilung = bonusVerteilung(def, partie);
   const beendet = partie.status !== 'laufend';
   if (!beendet) haltAbgleichAmLaufen(partie.id);
+  beobachteDrehung();
+
+  // Beim Wechsel der Partie wieder auf das eigene Blatt stellen.
+  if (gezeigtePartie !== partie.id) {
+    gezeigtePartie = partie.id;
+    gezeigterSpieler = null;
+  }
 
   if (!ich || !partie.teilnehmer.includes(ich)) {
     return [
@@ -268,87 +296,256 @@ export function erfassungBlatt(partie, def) {
     ];
   }
 
-  const meinBlatt = alle.get(ich) || leeresBlatt(def);
-  const meineWertung = punkte(def, meinBlatt, verteilung.get(ich));
+  // Angezeigt wird das eigene Blatt oder — nur lesend — das eines anderen.
+  const zeigen = gezeigterSpieler && partie.teilnehmer.includes(gezeigterSpieler)
+    ? gezeigterSpieler : ich;
+  const nurAnsehen = zeigen !== ich;
+  const gezeigtesBlatt = alle.get(zeigen) || leeresBlatt(def);
+  const wertung = punkte(def, gezeigtesBlatt, verteilung.get(zeigen),
+    beendet || gezeigtesBlatt.fertig);
+  const gesperrt = beendet || nurAnsehen;
 
   return [
-    kopf(partie.spiel_name || def.name, `Dein Blatt · ${nameVon(ich)}`, () => zurueck()),
-    hochformatHinweis(),
+    kopf(partie.spiel_name || def.name,
+      nurAnsehen ? `Blatt von ${nameVon(zeigen)}` : `Dein Blatt · ${nameVon(ich)}`,
+      () => zurueck()),
+    blattWahl(partie, ich, zeigen),
     kachel(
-      h('div', { klasse: 'blatt-huelle' }, blattRaster(def, partie, ich, meinBlatt, beendet)),
-      h('p', { klasse: 'klein', style: 'margin-top:8px', text:
-        'Auf das Feld tippen, bis zu dem du gekreuzt hast. Nochmal auf dasselbe Feld nimmt ' +
-        'ein Kreuz zurück. Ab Feld 11 friert die Reihe von selbst ein.' })
+      h('div', { klasse: 'blatt-huelle' }, blattRaster(def, partie, zeigen, gezeigtesBlatt, gesperrt)),
+      h('p', { klasse: 'klein', style: 'margin:8px 0 10px', text: nurAnsehen
+        ? `Nur zum Ansehen. Stand vom letzten Abgleich${zustand.meta.letzter_abgleich
+            ? ` um ${new Date(zustand.meta.letzter_abgleich).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}` : ''}.`
+        : 'Auf das Feld tippen, bis zu dem du gekreuzt hast. Nochmal auf dasselbe Feld nimmt ' +
+          'ein Kreuz zurück. Über den Farbpunkt frierst du eine Reihe ein — erst dann zählt ' +
+          'sie. Ab Feld 11 friert sie von selbst ein.' }),
+      querformatTaste()
     ),
-    bonusKachel(def, partie, ich, meinBlatt, meineWertung, beendet),
+    bonusKachel(def, partie, zeigen, gezeigtesBlatt, wertung, gesperrt),
     kachel(
-      h('h2', { text: `Dein Stand: ${meineWertung.gesamt} Punkte` }),
+      h('h2', { text: nurAnsehen
+        ? `${nameVon(zeigen)}: ${wertung.gesamt} Punkte`
+        : `Dein Stand: ${wertung.gesamt} Punkte` }),
       h('p', { klasse: 'sekundaer', text:
-        `${meineWertung.summeReihen} aus den Reihen, ${meineWertung.bonus} Bonus` })
+        `${wertung.summeReihen} aus eingefrorenen Reihen, ${wertung.bonus} Bonus` }),
+      wertung.nochOffen
+        ? h('p', { klasse: 'klein', style: 'margin-top:6px', text:
+            `Offene Reihen stehen derzeit bei ${wertung.nochOffen} Punkten. Sie zählen erst, ` +
+            'wenn du sie einfrierst oder am Spielende.' })
+        : null
     ),
     uebersichtKachel(def, partie, alle, ich, verteilung),
-    abschlussKachel(def, partie, ich, meinBlatt, alle, beendet),
+    nurAnsehen ? null : abschlussKachel(def, partie, ich, gezeigtesBlatt, alle, beendet),
   ];
+}
+
+/** Umschalter zwischen den Blättern aller Mitspieler. */
+function blattWahl(partie, ich, zeigen) {
+  return kachel(
+    h('div', { klasse: 'blattwahl' },
+      ...partie.teilnehmer.map((id) =>
+        h('button', {
+          klasse: `blattknopf${id === zeigen ? ' aktiv' : ''}`,
+          type: 'button',
+          onclick: () => { gezeigterSpieler = id === ich ? null : id; zeichne(); },
+        }, id === ich ? `${nameVon(id)} (du)` : nameVon(id))))
+  );
 }
 
 function zurueck() {
   history.back();
 }
 
-function hochformatHinweis() {
-  return h('p', { klasse: 'hinweis quer-hinweis', text:
-    'Das Blatt ist für das Querformat gedacht — Gerät drehen für die volle Breite.' });
+/**
+ * Querformat erzwingen. Das Sperren der Ausrichtung ist nur im Vollbild
+ * erlaubt, deshalb wird zuerst Vollbild angefordert. Klappt beides nicht,
+ * bleibt das Blatt hochkant bedienbar — es ist so gebaut, dass es auch dort
+ * vollständig auf den Bildschirm passt.
+ */
+async function querformatEin() {
+  try {
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+    await screen.orientation.lock('landscape');
+    zeichne();
+  } catch {
+    await dialog({
+      titel: 'Querformat nicht möglich',
+      inhalt: [
+        h('p', { klasse: 'sekundaer', text:
+          'Dieses Gerät lässt das Drehen aus der App heraus nicht zu. Das Blatt bleibt hochkant ' +
+          'vollständig bedienbar.' }),
+        h('p', { klasse: 'klein', text:
+          'Damit sich die App überhaupt drehen kann, muss zweierlei stimmen: die automatische ' +
+          'Bildschirmdrehung im Gerät darf nicht gesperrt sein, und die App muss nach der ' +
+          'Umstellung einmal neu zum Startbildschirm hinzugefügt worden sein — die alte ' +
+          'Festlegung auf Hochformat bleibt sonst erhalten.' }),
+      ],
+      tasten: [{ text: 'Verstanden', art: 'haupt' }],
+    });
+  }
 }
 
+async function querformatAus() {
+  try {
+    screen.orientation.unlock();
+    if (document.fullscreenElement) await document.exitFullscreen();
+  } catch { /* ohne Auswirkung */ }
+  zeichne();
+}
+
+function querformatTaste() {
+  const aktiv = !!document.fullscreenElement;
+  return taste(aktiv ? 'Querformat beenden' : 'Querformat', aktiv ? querformatAus : querformatEin, 'schmal');
+}
+
+/** Liegt das Gerät quer? Dann passt die breite Darstellung. */
+function querAusrichtung() {
+  try {
+    return window.matchMedia('(orientation: landscape)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Das Blatt in zwei Ausrichtungen:
+ *   hochkant — vier Farbspalten, dreizehn Zeilen, wie der Originalblock
+ *   quer     — vier Farbzeilen, dreizehn Spalten, nutzt die volle Breite
+ * Beide zeigen dieselben Felder, roten Linien und Zonenfarben.
+ */
 function blattRaster(def, partie, ich, blatt, beendet) {
+  return querAusrichtung()
+    ? rasterQuer(def, partie, ich, blatt, beendet)
+    : rasterHoch(def, partie, ich, blatt, beendet);
+}
+
+/** Farbkopf mit Schalter zum Einfrieren der Reihe. */
+function farbKopf(def, partie, ich, blatt, farbe, gesperrt) {
+  const stand = blatt.farben[farbe.id] || { felder: 0, eingefroren: false };
+  return h('th', {
+    klasse: `farbkopf${stand.eingefroren ? ' zu' : ''}`,
+    title: stand.eingefroren ? `${farbe.name}: eingefroren` : `${farbe.name}: offen`,
+    onclick: gesperrt ? null : () => reiheUmschalten(partie, def, ich, farbe, stand),
+  },
+    h('span', { klasse: 'farbpunkt', style: `background:${farbe.farbe}` }),
+    h('span', { klasse: 'frost', text: stand.eingefroren ? '❄' : '🔓' }));
+}
+
+async function reiheUmschalten(partie, def, ich, farbe, stand) {
+  if (stand.eingefroren) {
+    const auftauen = await frage(
+      `${farbe.name} wieder öffnen?`,
+      'Nur bei einem Erfassungsfehler. Die Reihe zählt danach erst wieder, wenn du sie ' +
+        'erneut einfrierst.',
+      'Wieder öffnen'
+    );
+    if (!auftauen) return;
+    await setzeStand(partie, ich, farbe.id, stand.felder, false);
+    return;
+  }
+
+  const wert = stand.felder > 0 ? def.blatt.punkte_je_feld[stand.felder - 1] : 0;
+  const zufrieren = await frage(
+    `${farbe.name} einfrieren?`,
+    `Die Reihe wird mit ${wert} Punkten gewertet. Danach kannst du dort nicht mehr kreuzen.`,
+    'Einfrieren'
+  );
+  if (!zufrieren) return;
+  await setzeStand(partie, ich, farbe.id, stand.felder, true);
+}
+
+function zonenKlasse(def, nr) {
+  return nr >= def.blatt.todeszone_ab ? 'tod' : nr >= def.blatt.punktezone_ab ? 'punkte' : 'start';
+}
+
+function feldZelle(def, partie, ich, farbe, stand, nr, beendet, extra = '') {
+  const gesetzt = nr <= stand.felder;
+  return h('td', {
+    klasse: `blattfeld ${zonenKlasse(def, nr)}${gesetzt ? ' gesetzt' : ''}` +
+      (stand.eingefroren ? ' starr' : '') + (extra ? ` ${extra}` : ''),
+    onclick: beendet ? null : () => tippeFeld(partie, def, ich, farbe, stand, nr),
+  }, gesetzt ? '✕' : '');
+}
+
+/** Hochkant: Spalten sind die Farben. */
+function rasterHoch(def, partie, ich, blatt, beendet) {
   const werte = def.blatt.punkte_je_feld;
-  const anzahl = werte.length;
+  const linienNach = new Set(def.blatt.linien.map((l) => l.ab_feld));
+
+  const kopfzeile = h('tr', {},
+    h('th', { klasse: 'punktkopf', text: 'Pkt' }),
+    ...def.blatt.farben.map((f) => farbKopf(def, partie, ich, blatt, f, beendet)));
+
+  const zeilen = werte.map((wert, i) => {
+    const nr = i + 1;
+    return h('tr', { klasse: linienNach.has(nr) ? 'linie-unten' : '' },
+      h('th', { klasse: `punktkopf ${zonenKlasse(def, nr)}`, text: String(wert) }),
+      ...def.blatt.farben.map((farbe) => {
+        const stand = blatt.farben[farbe.id] || { felder: 0, eingefroren: false };
+        return feldZelle(def, partie, ich, farbe, stand, nr, beendet);
+      }));
+  });
+
+  const fusszeile = h('tr', { klasse: 'summenzeile' },
+    h('th', { klasse: 'punktkopf', text: 'Σ' }),
+    ...def.blatt.farben.map((f) => {
+      const stand = blatt.farben[f.id] || { felder: 0, eingefroren: false };
+      const wert = stand.felder > 0 ? werte[stand.felder - 1] : 0;
+      return h('td', {
+        klasse: `zahl${stand.eingefroren ? '' : ' offen'}`,
+        title: stand.eingefroren ? 'gewertet' : 'zählt erst nach dem Einfrieren',
+      }, stand.eingefroren ? String(wert) : `(${wert})`);
+    }));
+
+  return h('table', { klasse: 'blatt hoch' },
+    h('thead', {}, kopfzeile),
+    h('tbody', {}, ...zeilen),
+    h('tfoot', {}, fusszeile));
+}
+
+/** Quer: Zeilen sind die Farben. */
+function rasterQuer(def, partie, ich, blatt, beendet) {
+  const werte = def.blatt.punkte_je_feld;
   const linienNach = new Set(def.blatt.linien.map((l) => l.ab_feld));
 
   const kopfzeile = h('tr', {},
     h('th', { klasse: 'farbkopf', text: '' }),
     ...werte.map((wert, i) => h('th', {
-      klasse: `feldkopf${linienNach.has(i + 1) ? ' linie-rechts' : ''}` +
-        (i + 1 >= def.blatt.todeszone_ab ? ' tod' : i + 1 >= def.blatt.punktezone_ab ? ' punkte' : ''),
+      klasse: `feldkopf ${zonenKlasse(def, i + 1)}${linienNach.has(i + 1) ? ' linie-rechts' : ''}`,
     }, String(wert))),
     h('th', { klasse: 'reihenwert', text: 'Σ' }));
 
   const zeilen = def.blatt.farben.map((farbe) => {
     const stand = blatt.farben[farbe.id] || { felder: 0, eingefroren: false };
     const wert = stand.felder > 0 ? werte[stand.felder - 1] : 0;
-
     return h('tr', {},
-      h('th', { klasse: 'farbkopf' },
-        h('span', { klasse: 'farbpunkt', style: `background:${farbe.farbe}`, title: farbe.name }),
-        stand.eingefroren ? h('span', { klasse: 'frost', text: '❄' }) : null),
-      ...werte.map((_, i) => {
-        const nr = i + 1;
-        const gesetzt = nr <= stand.felder;
-        const zone = nr >= def.blatt.todeszone_ab ? 'tod' : nr >= def.blatt.punktezone_ab ? 'punkte' : 'start';
-        return h('td', {
-          klasse: `blattfeld ${zone}${gesetzt ? ' gesetzt' : ''}` +
-            (linienNach.has(nr) ? ' linie-rechts' : '') +
-            (stand.eingefroren ? ' starr' : ''),
-          onclick: beendet ? null : () => tippeFeld(partie, def, ich, farbe, stand, nr),
-        }, gesetzt ? '✕' : '');
-      }),
-      h('td', { klasse: 'reihenwert zahl', text: String(wert) }));
+      farbKopf(def, partie, ich, blatt, farbe, beendet),
+      ...werte.map((_, i) =>
+        feldZelle(def, partie, ich, farbe, stand, i + 1, beendet,
+          linienNach.has(i + 1) ? 'linie-rechts' : '')),
+      h('td', {
+        klasse: `reihenwert zahl${stand.eingefroren ? '' : ' offen'}`,
+        title: stand.eingefroren ? 'gewertet' : 'zählt erst nach dem Einfrieren',
+      }, stand.eingefroren ? String(wert) : `(${wert})`));
   });
 
-  return h('table', { klasse: 'blatt' },
+  return h('table', { klasse: 'blatt quer' },
     h('thead', {}, kopfzeile),
     h('tbody', {}, ...zeilen));
 }
 
+/** Beim Drehen des Geräts die Ansicht neu aufbauen. */
+let drehungBeobachtet = false;
+function beobachteDrehung() {
+  if (drehungBeobachtet) return;
+  drehungBeobachtet = true;
+  try {
+    window.matchMedia('(orientation: landscape)').addEventListener('change', () => zeichneSanft());
+  } catch { /* ältere Browser: Ansicht wird beim nächsten Antippen neu gebaut */ }
+}
+
 async function tippeFeld(partie, def, ich, farbe, stand, nr) {
   if (stand.eingefroren) {
-    const auftauen = await frage(
-      'Reihe ist eingefroren',
-      `${farbe.name} wurde eingefroren. Nur bei einem Erfassungsfehler wieder öffnen.`,
-      'Wieder öffnen'
-    );
-    if (!auftauen) return;
-    await setzeStand(partie, ich, farbe.id, stand.felder, false);
+    meldung(`${farbe.name} ist eingefroren. Zum Öffnen den Farbpunkt antippen.`);
     return;
   }
 
@@ -392,10 +589,16 @@ async function bonusWeiter(partie, ich, linie, status) {
 function uebersichtKachel(def, partie, alle, ich, verteilung) {
   const zeilen = partie.teilnehmer.map((id) => {
     const blatt = alle.get(id);
-    const w = blatt ? punkte(def, blatt, verteilung.get(id)) : null;
+    const w = blatt
+      ? punkte(def, blatt, verteilung.get(id), partie.status !== 'laufend' || blatt.fertig)
+      : null;
     const eigenes = id === ich;
     return h('tr', {},
-      h('td', { text: nameVon(id) + (eigenes ? ' (du)' : '') }),
+      h('td', {},
+        h('button', {
+          klasse: 'alsverweis', type: 'button',
+          onclick: () => { gezeigterSpieler = eigenes ? null : id; zeichne(); },
+        }, nameVon(id) + (eigenes ? ' (du)' : ''))),
       h('td', { klasse: 'zahl', text: w ? String(w.gesamt) : '—' }),
       h('td', { text: blatt && blatt.fertig ? 'fertig' : '' }));
   });
@@ -407,7 +610,8 @@ function uebersichtKachel(def, partie, alle, ich, verteilung) {
         h('th', { text: 'Spieler' }), h('th', { text: 'Punkte' }), h('th', { text: '' }))),
       h('tbody', {}, ...zeilen)),
     h('p', { klasse: 'klein', style: 'margin-top:8px', text:
-      'Die Blätter der anderen kommen beim Abgleich dazu.' }),
+      'Einen Namen antippen, um das Blatt dieses Spielers anzusehen. ' +
+      'Die Stände kommen beim Abgleich dazu.' }),
     h('div', { style: 'margin-top:10px' },
       taste('Stände holen', async () => {
         const ergebnis = await abgleichStill();

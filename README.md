@@ -65,6 +65,9 @@ Ablauf am Tisch:
    (gespeichert in `mein_spieler`, gerätelokal, nicht im Journal).
 3. Jeder kreuzt auf seinem Blatt. Antippen eines Feldes setzt den Stand bis
    dorthin, nochmaliges Antippen desselben Feldes nimmt ein Kreuz zurück.
+   Über die Knopfreihe unter dem Kopf — oder durch Antippen eines Namens in
+   der Übersicht — lässt sich das Blatt jedes Mitspielers ansehen. Fremde
+   Blätter sind schreibgeschützt und zeigen den Stand des letzten Abgleichs.
 4. „Stände holen" holt die Blätter der anderen; „Blatt fertig" meldet den
    eigenen Stand. Beim Beenden wird gewarnt, wenn noch Blätter offen sind.
 
@@ -74,10 +77,21 @@ Punktezone ab Feld 6, Todeszone ab Feld 11, drei Bonuslinien nach den
 Feldern 3, 6 und 9 mit 4/2, 5/3 und 6/4 Punkten.
 
 **Wertung:** Eine Reihe zählt den Punktwert des am weitesten rechts gesetzten
-Kreuzes. Kreuze werden lückenlos von links gesetzt, deshalb genügt je Farbe die
-erreichte Position — gespeichert wird eine Zahl, kein Feld-für-Feld-Zustand.
-Wer in die Todeszone kreuzt, friert die Reihe automatisch ein. Höchste
-Gesamtpunktzahl gewinnt.
+Kreuzes — **aber erst, wenn sie eingefroren ist**. Solange eine Reihe offen
+ist, kann dort weiter gekreuzt werden, ihr Wert steht also noch nicht fest; er
+wird in der Fußzeile in Klammern und im Stand getrennt als „offene Reihen"
+ausgewiesen. Zum Spielende zählen dann auch die offenen Reihen mit (im Code:
+`alleWerten`), sobald die Partie beendet oder das Blatt als fertig gemeldet
+ist.
+
+Eingefroren wird über den **Farbpunkt** am Kopf der Reihe, mit Rückfrage und
+Angabe des Werts. In einer eingefrorenen Reihe lässt sich nicht mehr kreuzen;
+öffnen geht über denselben Farbpunkt, gedacht nur für Erfassungsfehler. Wer in
+die Todeszone kreuzt, friert die Reihe automatisch ein.
+
+Kreuze werden lückenlos von links gesetzt, deshalb genügt je Farbe die
+erreichte Position — gespeichert wird eine Zahl plus die Angabe, ob
+eingefroren. Höchste Gesamtpunktzahl gewinnt.
 
 **Bonuslinien — automatisch verteilt:** Eine Linie gilt als erreicht, sobald
 **alle vier** Farben den Stand `ab_feld` erreicht haben. Wer sie zuerst
@@ -98,9 +112,18 @@ Liste gekennzeichnet. Nur sie können sich widersprechen — beim Beenden weist
 die App darauf hin, wenn zwei Spieler dieselbe Linie von Hand als Erster
 beanspruchen.
 
-**Querformat:** Das Manifest erlaubt jetzt beide Ausrichtungen
-(`"orientation": "any"`). Im Hochformat erscheint ein Hinweis zum Drehen, das
-Raster bleibt trotzdem bedienbar und seitlich scrollbar.
+**Zwei Ausrichtungen:** Hochkant zeigt die App vier Farbspalten und dreizehn
+Zeilen — wie der Originalblock; die Felder sind dort rund 70 px breit und gut
+zu treffen. Quer werden Zeilen und Spalten getauscht, damit die volle Breite
+genutzt wird. Beim Drehen baut sich die Ansicht selbst um.
+
+Der Knopf **Querformat** fordert Vollbild an und sperrt die Ausrichtung; das
+Sperren ist laut Spezifikation nur im Vollbild erlaubt. Klappt es nicht, sagt
+die App das und nennt die beiden Ursachen: die Bildschirmdrehung ist im Gerät
+gesperrt, oder die App wurde noch mit dem alten Manifest
+(`"orientation": "portrait"`) installiert. **Eine Manifest-Änderung greift bei
+einer installierten PWA erst, wenn sie neu zum Startbildschirm hinzugefügt
+wird.**
 
 **Neue Ereignistypen:** `blatt_stand_gesetzt` (Partie, Spieler, Farbe, Felder,
 eingefroren), `blatt_bonus_gesetzt` (Linie, Status) und

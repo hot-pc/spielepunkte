@@ -771,7 +771,7 @@ registriereAnsicht('ergebnis', ({ partieId }) => {
               ...def.blatt.farben.map((f) => h('th', { text: f.name.slice(0, 3) })),
               h('th', { text: 'Bonus' }))),
             h('tbody', {}, ...partie.teilnehmer.map((id) => {
-              const w = blattPunkte(def, erg.blaetter.get(id), bonusVerteilung(def, partie).get(id));
+              const w = blattPunkte(def, erg.blaetter.get(id), bonusVerteilung(def, partie).get(id), true);
               return h('tr', {},
                 h('td', { text: nameVon(id) }),
                 ...def.blatt.farben.map((f) => h('td', { klasse: 'zahl', text: String(w.reihen[f.id]) })),

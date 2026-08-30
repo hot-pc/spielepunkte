@@ -262,28 +262,21 @@ body.viele-spieler table.matrix th, body.viele-spieler table.matrix td { padding
 
 .blatt-huelle { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
-table.blatt { border-collapse: collapse; width: 100%; }
+table.blatt { border-collapse: collapse; width: 100%; table-layout: fixed; }
 table.blatt th, table.blatt td { border: 0.5px solid var(--rand); text-align: center; }
 
-table.blatt .feldkopf {
-  font-size: 0.68rem; font-weight: 650; color: var(--text-sekundaer);
-  padding: 4px 0; background: var(--grund); font-variant-numeric: tabular-nums;
-}
-table.blatt .feldkopf.punkte { background: #FBEBC8; color: var(--text); }
-table.blatt .feldkopf.tod { background: #E2E0D8; }
-
-table.blatt .farbkopf {
-  width: 38px; padding: 4px; background: var(--kachel); white-space: nowrap;
-}
 .farbpunkt {
   display: inline-block; width: 18px; height: 18px; border-radius: 50%;
   vertical-align: middle; border: 1px solid rgba(0, 0, 0, 0.15);
 }
-.frost { font-size: 0.75rem; color: var(--text-sekundaer); margin-left: 2px; }
+.frost { font-size: 0.7rem; color: var(--text-sekundaer); margin-left: 1px; }
+table.blatt .farbkopf.zu { background: var(--grund); }
+
+/* Reihenwert, der noch nicht zählt, weil die Reihe offen ist. */
+table.blatt .zahl.offen, table.blatt .reihenwert.offen { color: var(--text-sekundaer); font-weight: 550; }
 
 table.blatt .blattfeld {
-  height: 38px; min-width: 30px; cursor: pointer; font-size: 1rem; font-weight: 650;
-  color: var(--akzent-dunkel); background: var(--kachel);
+  cursor: pointer; font-weight: 650; color: var(--akzent-dunkel); background: var(--kachel);
 }
 table.blatt .blattfeld.punkte { background: #FDF3DE; }
 table.blatt .blattfeld.tod { background: #E9E7DF; }
@@ -291,18 +284,56 @@ table.blatt .blattfeld.gesetzt { background: var(--akzent-tuenung); }
 table.blatt .blattfeld.tod.gesetzt { background: #D9D6CB; }
 table.blatt .blattfeld.starr { cursor: default; opacity: 0.75; }
 
-/* Die drei roten Bonuslinien des Blocks. */
-table.blatt .linie-rechts { border-right: 3px solid var(--akzent-rand); }
+/* Zonenfarben der Punktespalte beziehungsweise Kopfzeile. */
+table.blatt .punkte { background: #FBEBC8; }
+table.blatt .tod { background: #E2E0D8; }
 
-table.blatt .reihenwert {
-  width: 40px; font-weight: 650; background: var(--grund);
-  font-variant-numeric: tabular-nums;
+/* Hochkant: vier Farbspalten, dreizehn Zeilen — wie der Originalblock. */
+table.blatt.hoch .punktkopf {
+  width: 42px; font-size: 0.8rem; font-weight: 650; color: var(--text-sekundaer);
+  background: var(--grund); font-variant-numeric: tabular-nums; padding: 4px 0;
+}
+table.blatt.hoch .farbkopf { padding: 6px 0; background: var(--kachel); cursor: pointer; }
+table.blatt.hoch .blattfeld { height: 40px; font-size: 1.05rem; }
+/* Die roten Bonuslinien liegen hier waagerecht. */
+table.blatt.hoch tr.linie-unten th, table.blatt.hoch tr.linie-unten td {
+  border-bottom: 3px solid var(--akzent-rand);
+}
+table.blatt.hoch tfoot td, table.blatt.hoch tfoot th {
+  font-weight: 650; background: var(--grund); padding: 8px 0;
+  font-variant-numeric: tabular-nums; border-top: 1px solid var(--text-sekundaer);
 }
 
-/* Der Drehhinweis verschwindet, sobald das Gerät quer gehalten wird. */
-@media (orientation: landscape), (min-width: 620px) {
-  .quer-hinweis { display: none; }
+/* Quer: vier Farbzeilen, dreizehn Spalten. */
+table.blatt.quer .feldkopf {
+  font-size: 0.72rem; font-weight: 650; color: var(--text-sekundaer);
+  padding: 4px 0; background: var(--grund); font-variant-numeric: tabular-nums;
 }
+table.blatt.quer .farbkopf { width: 44px; padding: 4px 2px; background: var(--kachel); cursor: pointer; }
+table.blatt.quer .blattfeld { height: 40px; font-size: 1rem; }
+table.blatt.quer .linie-rechts { border-right: 3px solid var(--akzent-rand); }
+table.blatt.quer .reihenwert {
+  width: 40px; font-weight: 650; background: var(--grund); font-variant-numeric: tabular-nums;
+}
+
 @media (orientation: landscape) {
   #app { max-width: none; }
+}
+
+/* Umschalter zwischen den Blättern der Mitspieler. */
+.blattwahl { display: flex; flex-wrap: wrap; gap: 8px; }
+.blattknopf {
+  flex: 1 1 auto; padding: 9px 12px; border-radius: var(--radius-klein);
+  border: 0.5px solid var(--rand); background: var(--kachel); color: var(--text);
+  font: inherit; font-size: 0.9rem; font-weight: 550; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.blattknopf.aktiv {
+  background: var(--akzent); border-color: var(--akzent); color: var(--akzent-text);
+}
+
+/* Name in der Übersicht, der zum Blatt führt. */
+.alsverweis {
+  background: none; border: 0; padding: 0; font: inherit; color: var(--akzent-dunkel);
+  text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
 }
