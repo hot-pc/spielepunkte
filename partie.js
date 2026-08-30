@@ -2,7 +2,7 @@
 
 import {
   zustand, registriereAnsicht, navigiere, zeichne, schreibe, merke,
-  neueId, definitionFuer, spieleZurAuswahl, abgleichStill, zeichneSanft, notizFuer,
+  neueId, definitionFuer, spieleZurAuswahl, abgleichStill, zeichneSanft, notizFuer, nameVon,
 } from './kern.js';
 import {
   h, kachel, kopf, taste, meldung, dialog, frage, textFrage, notizFrage,
@@ -15,13 +15,11 @@ import {
 import { kurznamen } from './kurznamen.js';
 import { aktiveSpieler } from './projektion.js';
 import { ergebnis, endbedingungText } from './auswertung.js';
+import { erfassungBlatt, blaetter, punkte as blattPunkte, bonusKonflikte, bonusVerteilung } from './calavera.js';
 
 // --- Hilfen --------------------------------------------------------------
 
-export function nameVon(id) {
-  const s = zustand.spieler.get(id);
-  return s ? s.name : '(unbekannt)';
-}
+export { nameVon };
 
 function kurznamenFuer(teilnehmer) {
   const kurz = kurznamen(teilnehmer.map(nameVon));
@@ -366,6 +364,7 @@ registriereAnsicht('erfassung', ({ partieId }) => {
 
   document.body.classList.toggle('viele-spieler', partie.teilnehmer.length >= 4);
 
+  if (def.erfassungsmodus === 'blatt_calavera') return erfassungBlatt(partie, def);
   if (def.erfassungsmodus === 'nur_sieger') return erfassungNurSieger(partie, def);
   if (def.erfassungsmodus === 'punkte_fortlaufend') return erfassungFortlaufend(partie, def);
   return erfassungRundenblock(partie, def);
@@ -656,6 +655,8 @@ function erfassungFortlaufend(partie, def) {
 // --- Beenden -------------------------------------------------------------
 
 async function partieBeenden(partie, def) {
+  if (def.erfassungsmodus === 'blatt_calavera') return blattPartieBeenden(partie, def);
+
   const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
   const pl = platzierung(def, partie.teilnehmer, stand);
 
@@ -674,6 +675,43 @@ async function partieBeenden(partie, def) {
   navigiere('ergebnis', { partieId: partie.id });
   // Abgleich im Hintergrund, damit der Stand die anderen Geräte erreicht.
   abgleichStill().then((ergebnis) => { if (ergebnis && ergebnis.ok) zeichneSanft(); });
+}
+
+/** Beenden im Blattmodus: erst prüfen, ob alle fertig sind. */
+async function blattPartieBeenden(partie, def) {
+  const alle = blaetter(def, partie);
+  const offen = partie.teilnehmer.filter((id) => !(alle.get(id) || {}).fertig);
+  if (offen.length) {
+    const trotzdem = await frage(
+      'Noch nicht alle fertig',
+      `${offen.map(nameVon).join(', ')} ${offen.length === 1 ? 'hat' : 'haben'} das Blatt noch ` +
+        'nicht als fertig gemeldet. Fehlende Stände können später noch dazukommen; die ' +
+        'Auswertung rechnet dann neu.',
+      'Trotzdem beenden'
+    );
+    if (!trotzdem) return;
+  }
+
+  const konflikte = bonusKonflikte(def, alle);
+  if (konflikte.length) {
+    const weiter = await frage(
+      'Bonus mehrfach beansprucht',
+      konflikte.map((k) => `Linie ${k.linie}: ${k.spieler.map(nameVon).join(' und ')}`).join('; ') +
+        ' — jeweils als Erster eingetragen. Das sollte am Tisch geklärt und im Blatt ' +
+        'berichtigt werden.',
+      'Trotzdem beenden'
+    );
+    if (!weiter) return;
+  }
+
+  const erg = ergebnis(def, partie);
+  await schreibe('partie_beendet', {
+    partie_id: partie.id,
+    end_zeitpunkt: new Date().toISOString(),
+    sieger: erg.sieger,
+  });
+  navigiere('ergebnis', { partieId: partie.id });
+  abgleichStill().then((e) => { if (e && e.ok) zeichneSanft(); });
 }
 
 // --- Ergebnis ------------------------------------------------------------
@@ -724,7 +762,25 @@ registriereAnsicht('ergebnis', ({ partieId }) => {
           h('div', { style: 'margin-top:10px' }, taste('Sieger festlegen', () => siegerFestlegen(partie, erg), 'haupt schmal'))))
       : null,
 
-    erg.punkte
+    erg.punkte && def && def.erfassungsmodus === 'blatt_calavera'
+      ? kachel(
+          h('h2', { text: 'Blätter' }),
+          h('table', { klasse: 'daten' },
+            h('thead', {}, h('tr', {},
+              h('th', { text: 'Spieler' }),
+              ...def.blatt.farben.map((f) => h('th', { text: f.name.slice(0, 3) })),
+              h('th', { text: 'Bonus' }))),
+            h('tbody', {}, ...partie.teilnehmer.map((id) => {
+              const w = blattPunkte(def, erg.blaetter.get(id), bonusVerteilung(def, partie).get(id));
+              return h('tr', {},
+                h('td', { text: nameVon(id) }),
+                ...def.blatt.farben.map((f) => h('td', { klasse: 'zahl', text: String(w.reihen[f.id]) })),
+                h('td', { klasse: 'zahl', text: String(w.bonus) }));
+            })))
+        )
+      : null,
+
+    erg.punkte && def && def.erfassungsmodus !== 'blatt_calavera'
       ? kachel(
           h('h2', { text: 'Verlauf' }),
           h('div', { klasse: 'matrix-huelle' },

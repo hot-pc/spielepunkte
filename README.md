@@ -17,6 +17,7 @@ Adresse: https://hot-pc.github.io/spielepunkte/
 | `kern.js` | Zustand, Journal-Schreibweg, Navigation, Export/Import |
 | `partie.js` | Partiestart, die drei Erfassungsbildschirme, Ergebnis |
 | `statistik.js` | Auswertungsbildschirm |
+| `calavera.js` | Calavera: Blattlogik, Wertung und Querformat-Ansicht |
 | `auswertung.js` | Rechenlogik der Auswertung |
 | `regeln.js` | Summen, Sonderregel-Bausteine, Endbedingung, Platzierung |
 | `projektion.js` | Journal → aktueller Zustand |
@@ -49,6 +50,62 @@ bleiben.
 Dauerhafte Regeln, die für alle gelten sollen, gehören besser in
 `hinweis_erfassung` in `spiele.json`; die Notiz ist für das gedacht, was am
 Tisch entschieden wird.
+
+## Calavera — ein Blatt je Gerät
+
+Calavera ist das erste Spiel mit dem Erfassungsmodus `blatt_calavera`: **Jeder
+Spieler führt sein eigenes Blatt auf seinem eigenen Gerät**, die Blätter werden
+über das Daten-Repository zusammengeführt.
+
+Ablauf am Tisch:
+
+1. Ein Gerät startet die Partie und wählt alle Mitspieler aus.
+2. Die anderen Geräte gleichen ab; die Partie erscheint dort unter „Laufende
+   Partien". Beim Öffnen wird einmal gefragt, welches Blatt dieses Gerät führt
+   (gespeichert in `mein_spieler`, gerätelokal, nicht im Journal).
+3. Jeder kreuzt auf seinem Blatt. Antippen eines Feldes setzt den Stand bis
+   dorthin, nochmaliges Antippen desselben Feldes nimmt ein Kreuz zurück.
+4. „Stände holen" holt die Blätter der anderen; „Blatt fertig" meldet den
+   eigenen Stand. Beim Beenden wird gewarnt, wenn noch Blätter offen sind.
+
+**Aufbau des Blocks** steht vollständig in `spiele.json` unter `blatt`: vier
+Farben, 13 Felder mit den Punktwerten `0 0 0 0 0 4 5 6 8 10 4 0 -3`,
+Punktezone ab Feld 6, Todeszone ab Feld 11, drei Bonuslinien nach den
+Feldern 3, 6 und 9 mit 4/2, 5/3 und 6/4 Punkten.
+
+**Wertung:** Eine Reihe zählt den Punktwert des am weitesten rechts gesetzten
+Kreuzes. Kreuze werden lückenlos von links gesetzt, deshalb genügt je Farbe die
+erreichte Position — gespeichert wird eine Zahl, kein Feld-für-Feld-Zustand.
+Wer in die Todeszone kreuzt, friert die Reihe automatisch ein. Höchste
+Gesamtpunktzahl gewinnt.
+
+**Bonuslinien — automatisch verteilt:** Eine Linie gilt als erreicht, sobald
+**alle vier** Farben den Stand `ab_feld` erreicht haben. Wer sie zuerst
+erreicht hat, ermittelt die App selbst: Die Stand-Ereignisse aller Spieler
+werden chronologisch nachgespielt, und für jeden wird der Zeitpunkt
+festgehalten, an dem seine vierte Farbe die Linie erreichte. Der früheste
+bekommt den höheren Wert, alle danach den niedrigeren. Wird ein Kreuz wieder
+zurückgenommen, verfällt der Zeitpunkt — ein Erfassungsfehler sichert also
+keine Erstplatzierung.
+
+Damit das trägt, halten die Geräte während einer laufenden Partie den Abgleich
+aufrecht: alle 20 Sekunden, solange ein Blatt geöffnet ist, und gebündelt vier
+Sekunden nach der letzten eigenen Eingabe.
+
+Antippen des Bonusfeldes setzt den Wert **von Hand** (als Erster → nach
+jemandem → wieder automatisch); Handeinträge haben Vorrang und sind in der
+Liste gekennzeichnet. Nur sie können sich widersprechen — beim Beenden weist
+die App darauf hin, wenn zwei Spieler dieselbe Linie von Hand als Erster
+beanspruchen.
+
+**Querformat:** Das Manifest erlaubt jetzt beide Ausrichtungen
+(`"orientation": "any"`). Im Hochformat erscheint ein Hinweis zum Drehen, das
+Raster bleibt trotzdem bedienbar und seitlich scrollbar.
+
+**Neue Ereignistypen:** `blatt_stand_gesetzt` (Partie, Spieler, Farbe, Felder,
+eingefroren), `blatt_bonus_gesetzt` (Linie, Status) und
+`blatt_fertig_gesetzt`. Alle append-only wie das übrige Journal; das jeweils
+jüngste Ereignis je Farbe bzw. Linie gilt.
 
 ## Änderungen veröffentlichen — Pflichtschritt
 

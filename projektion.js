@@ -61,6 +61,7 @@ export function projiziere(ereignisse) {
             sieger_manuell: false,
             serie_id: d.serie_id || null,
             eintraege: [],
+            blatt: [],
             beendet_am: null,
             nachtraeglich_geaendert: false,
             geraet_name: e.geraet_name || null,
@@ -80,6 +81,27 @@ export function projiziere(ereignisse) {
           entfernt: e.typ === 'eintrag_entfernt',
           zeit: e.zeit,
           korrektur: e.typ !== 'eintrag_erfasst',
+        });
+        if (p.beendet_am && e.zeit > p.beendet_am) p.nachtraeglich_geaendert = true;
+        break;
+      }
+
+      case 'blatt_stand_gesetzt':
+      case 'blatt_bonus_gesetzt':
+      case 'blatt_fertig_gesetzt': {
+        const p = partien.get(d.partie_id);
+        if (!p) break;
+        p.blatt.push({
+          art: e.typ === 'blatt_stand_gesetzt' ? 'stand'
+            : e.typ === 'blatt_bonus_gesetzt' ? 'bonus' : 'fertig',
+          spieler_id: d.spieler_id,
+          farbe: d.farbe,
+          felder: d.felder,
+          eingefroren: d.eingefroren,
+          linie: d.linie,
+          status: d.status,
+          fertig: d.fertig,
+          zeit: e.zeit,
         });
         if (p.beendet_am && e.zeit > p.beendet_am) p.nachtraeglich_geaendert = true;
         break;

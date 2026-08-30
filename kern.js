@@ -83,6 +83,12 @@ export function definitionFuer(spielId, version) {
   return irgendeine || null;
 }
 
+/** Anzeigename eines Spielers. */
+export function nameVon(id) {
+  const s = zustand.spieler.get(id);
+  return s ? s.name : '(unbekannt)';
+}
+
 /** Hausregeln und Notizen zu einem Spiel, geräteübergreifend im Journal. */
 export function notizFuer(spielId) {
   return zustand.notizen.get(spielId) || null;
@@ -145,7 +151,10 @@ export function zeichne() {
  * getippte Zahl verloren gehen. Für Aktualisierungen aus dem Hintergrund.
  */
 export function zeichneSanft() {
-  if (zustand.ansicht.name === 'erfassung') return;
+  // Blockiert wird nur, wenn gerade eine Zahl eingetippt wird — sonst ginge
+  // der Puffer der Zifferntastatur verloren. Blattansichten ohne Tastatur
+  // dürfen aktualisiert werden, damit die Stände der anderen ankommen.
+  if (zustand.ansicht.name === 'erfassung' && document.querySelector('.tastatur')) return;
   zeichne();
 }
 

@@ -6,7 +6,7 @@
 // WICHTIG bei Aenderungen: VERSION erhoehen, sonst nehmen die Geraete die
 // neuen Dateien nicht an. Neue Dateien zusaetzlich in DATEIEN eintragen.
 
-const VERSION = 'v10';
+const VERSION = 'v12';
 const CACHE = `spielepunkte-${VERSION}`;
 
 const DATEIEN = [
@@ -26,6 +26,7 @@ const DATEIEN = [
   'auswertung.js',
   'partie.js',
   'statistik.js',
+  'calavera.js',
   'github.js',
   'icon-192.png',
   'icon-512.png',

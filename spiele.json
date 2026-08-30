@@ -5,7 +5,7 @@
     "name": "Anzeigename",
     "version": "fortlaufende Zahl. Bei jeder Regelaenderung erhoehen.",
     "gueltig_ab": "JJJJ-MM-TT",
-    "erfassungsmodus": "nur_sieger | punkte_rundenblock | punkte_fortlaufend",
+    "erfassungsmodus": "nur_sieger | punkte_rundenblock | punkte_fortlaufend | blatt_calavera",
     "wertungsrichtung": "hoechste | niedrigste | null (bei nur_sieger)",
     "vorzeichen": "nur_positiv | auch_negativ | null (bei nur_sieger). nur_positiv weist negative Eingaben ab, 0 ist erlaubt.",
     "endbedingung": "manuell | rundenzahl | waehlbar",
@@ -16,7 +16,8 @@
     "spieler_max": "Zahl oder null.",
     "schnellstart_wiederholung": "true = nach dem Speichern 'Nochmal, gleiche Spieler' anbieten",
     "serie_gruppieren": "derzeit ueberall false",
-    "gleichstandsregel": "geteilte_plaetze_manuell"
+    "gleichstandsregel": "geteilte_plaetze_manuell",
+    "blatt": "Nur bei blatt_calavera: Aufbau des Spielblocks (Farben, Punkte je Feld, Todeszone, Bonuslinien)."
   },
   "spiele": [
     {
@@ -174,6 +175,86 @@
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
       "gleichstandsregel": "geteilte_plaetze_manuell"
+    },
+    {
+      "id": "calavera",
+      "name": "Calavera",
+      "version": 1,
+      "gueltig_ab": "2026-08-30",
+      "erfassungsmodus": "blatt_calavera",
+      "wertungsrichtung": "hoechste",
+      "vorzeichen": null,
+      "endbedingung": "manuell",
+      "rundenzahl_vorbelegung": null,
+      "schwellwert": null,
+      "sonderregeln": [],
+      "spieler_min": 2,
+      "spieler_max": 4,
+      "schnellstart_wiederholung": true,
+      "serie_gruppieren": false,
+      "gleichstandsregel": "geteilte_plaetze_manuell",
+      "hinweis_erfassung": "Jeder führt sein eigenes Blatt auf seinem Gerät. Eine Reihe zählt so viele Punkte, wie das am weitesten rechts gesetzte Kreuz angibt. Wer in die Todeszone kreuzt, friert die Reihe sofort ein.",
+      "blatt": {
+        "farben": [
+          {
+            "id": "schwarz",
+            "name": "Schwarz",
+            "farbe": "#3A3A38"
+          },
+          {
+            "id": "tuerkis",
+            "name": "Türkis",
+            "farbe": "#5FB894"
+          },
+          {
+            "id": "pink",
+            "name": "Pink",
+            "farbe": "#E4607C"
+          },
+          {
+            "id": "orange",
+            "name": "Orange",
+            "farbe": "#E8863C"
+          }
+        ],
+        "punkte_je_feld": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          4,
+          5,
+          6,
+          8,
+          10,
+          4,
+          0,
+          -3
+        ],
+        "punktezone_ab": 6,
+        "todeszone_ab": 11,
+        "linien": [
+          {
+            "nr": 1,
+            "ab_feld": 3,
+            "erster": 4,
+            "nachfolger": 2
+          },
+          {
+            "nr": 2,
+            "ab_feld": 6,
+            "erster": 5,
+            "nachfolger": 3
+          },
+          {
+            "nr": 3,
+            "ab_feld": 9,
+            "erster": 6,
+            "nachfolger": 4
+          }
+        ]
+      }
     }
   ]
 }

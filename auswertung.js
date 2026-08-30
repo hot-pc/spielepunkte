@@ -1,10 +1,34 @@
 // Auswertung (Konzept 7). Reine Rechenlogik ohne Oberflaeche.
 
 import { berechneStand, platzierung } from './regeln.js';
+import { blaetter, punkte as blattPunkte, bonusVerteilung } from './calavera.js';
+
+/** Leerer Stand für Modi ohne Rundenmatrix, damit die Auswertung greift. */
+const LEERER_STAND = { matrix: new Map(), sequenzen: [], summen: new Map(), resets: [], vollstaendigeRunden: 0, letzteSequenz: 0 };
 
 /** Ergebnis einer Partie. Wird immer neu berechnet, damit nachtraegliche
  *  Korrekturen sofort wirken. Ein manuell gesetzter Sieger hat Vorrang. */
 export function ergebnis(def, partie) {
+  if (def && def.erfassungsmodus === 'blatt_calavera') {
+    const alle = blaetter(def, partie);
+    const verteilung = bonusVerteilung(def, partie);
+    const summen = new Map();
+    for (const id of partie.teilnehmer) {
+      const blatt = alle.get(id);
+      summen.set(id, blatt ? blattPunkte(def, blatt, verteilung.get(id)).gesamt : 0);
+    }
+    const stand = { ...LEERER_STAND, summen };
+    const pl = platzierung(def, partie.teilnehmer, stand);
+    return {
+      punkte: true,
+      stand,
+      blaetter: alle,
+      liste: pl.liste,
+      sieger: partie.sieger_manuell ? partie.sieger : pl.sieger,
+      gleichstand: pl.gleichstand && !partie.sieger_manuell,
+    };
+  }
+
   if (!def || def.erfassungsmodus === 'nur_sieger') {
     return {
       punkte: false,
@@ -102,7 +126,7 @@ export function jeSpiel(treffer) {
   let hoechsterEinzelwert = null;
   let niedrigsterEinzelwert = null;
   for (const t of treffer) {
-    if (!t.erg.stand) continue;
+    if (!t.erg.stand || !t.erg.stand.matrix || !t.erg.stand.matrix.size) continue;
     for (const zeile of t.erg.stand.matrix.values()) {
       for (const wert of zeile.values()) {
         if (hoechsterEinzelwert === null || wert > hoechsterEinzelwert) hoechsterEinzelwert = wert;
