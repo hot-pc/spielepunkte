@@ -313,8 +313,10 @@ table.blatt.hoch .punktkopf {
 }
 table.blatt.hoch .farbkopf { padding: 6px 0; background: var(--kachel); cursor: pointer; }
 table.blatt.hoch .blattfeld { height: 40px; font-size: 1.05rem; }
-/* Die roten Bonuslinien liegen hier waagerecht. */
-table.blatt.hoch tr.linie-unten th, table.blatt.hoch tr.linie-unten td {
+/* Die roten Bonuslinien liegen hier waagerecht. Sie beginnen bei der
+   Punktespalte und laufen bis zum Rand — die Rosenspalte bleibt frei, damit
+   alle drei Linien gleich aussehen. */
+table.blatt.hoch tr.linie-unten > *:not(.rosen) {
   border-bottom: 3px solid var(--akzent-rand);
 }
 /* Grenze zwischen den Rosen-Abschnitten: gleiche Stärke, eigene Farbe. */

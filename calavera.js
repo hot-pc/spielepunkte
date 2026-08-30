@@ -633,11 +633,15 @@ function rasterQuer(def, partie, ich, blatt, beendet) {
     if (abschnitt) {
       rosenzeile.append(rosenZelle(abschnitt.rosen, {
         colspan: String(abschnitt.bis - abschnitt.von + 1),
-        klasse: `rosen${trennklasse(abschnitt.bis)}`,
+        // Die roten Bonuslinien beginnen erst bei den Punktwerten, damit sie
+        // über alle Zeilen gleich aussehen.
+        klasse: `rosen${grenzen.has(abschnitt.bis) ? ' abschnitt-rechts' : ''}`,
       }));
       feld = abschnitt.bis + 1;
     } else {
-      rosenzeile.append(h('td', { klasse: `rosen leer${trennklasse(feld)}` }));
+      rosenzeile.append(h('td', {
+        klasse: `rosen leer${grenzen.has(feld) ? ' abschnitt-rechts' : ''}`,
+      }));
       feld++;
     }
   }
