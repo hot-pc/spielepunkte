@@ -7,6 +7,10 @@ import { projiziere } from './projektion.js';
 import { baueExport, lesePaket } from './journal.js';
 import { abstand, namensform } from './regeln.js';
 
+// Muss mit VERSION in sw.js übereinstimmen. Weicht die Anzeige im
+// Datenbereich davon ab, läuft auf dem Gerät noch eine ältere Fassung.
+export const APP_VERSION = 'v24';
+
 export const zustand = {
   ereignisse: [],
   ids: new Set(),
@@ -414,6 +418,42 @@ export function aehnlicheNamen() {
 }
 
 // --- Dienst fuer Neuerungen (Konzept 11.2) -------------------------------
+
+/** Version des aktiven Service Workers erfragen. */
+export function serviceWorkerVersion() {
+  return new Promise((fertig) => {
+    const aktiv = navigator.serviceWorker && navigator.serviceWorker.controller;
+    if (!aktiv) { fertig(null); return; }
+    const kanal = new MessageChannel();
+    const uhr = setTimeout(() => fertig(null), 1500);
+    kanal.port1.onmessage = (e) => {
+      clearTimeout(uhr);
+      fertig(e.data && e.data.version ? e.data.version : null);
+    };
+    try {
+      aktiv.postMessage({ befehl: 'version' }, [kanal.port2]);
+    } catch {
+      clearTimeout(uhr);
+      fertig(null);
+    }
+  });
+}
+
+/** Von Hand nach einer neuen Fassung suchen und sie übernehmen. */
+export async function holeNeueVersion() {
+  if (!('serviceWorker' in navigator)) return { ok: false, meldung: 'Dieser Browser verwaltet keine Zwischenspeicher.' };
+  const registrierung = await navigator.serviceWorker.getRegistration();
+  if (!registrierung) return { ok: false, meldung: 'Es ist kein Zwischenspeicher eingerichtet.' };
+
+  await registrierung.update();
+  const wartend = registrierung.waiting;
+  if (wartend) {
+    wartend.postMessage({ befehl: 'sofort-uebernehmen' });
+    setTimeout(() => location.reload(), 300);
+    return { ok: true, neu: true };
+  }
+  return { ok: true, neu: false };
+}
 
 export function pruefeAufNeueVersion(registrierung) {
   // Nur beim Start und nur, wenn keine Partie laeuft.

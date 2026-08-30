@@ -3,7 +3,7 @@
 import {
   zustand, starte, starteNavigation, registriereAnsicht, navigiere, zeichne,
   schreibe, merke, ereignisseNichtExportiert, definitionFuer, aehnlicheNamen,
-  pruefeAufNeueVersion, zeigeNeueVersion,
+  pruefeAufNeueVersion, zeigeNeueVersion, APP_VERSION, serviceWorkerVersion, holeNeueVersion,
   zugang, zugangEingerichtet, abgleichen, abgleichStill, zeichneSanft,
 } from './kern.js';
 import { pruefeZugang, eigenerDateiname } from './github.js';
@@ -222,8 +222,10 @@ registriereAnsicht('daten', () => {
         zeileWert('Ereignisse', String(zustand.ereignisse.length)),
         zeileWert('Partien', String(zustand.partien.size)),
         zeileWert('Spieler', String(zustand.spieler.size)),
-        zeileWert('Letzter Abgleich', datumZeit(zustand.meta.letzter_abgleich)))),
-      h('div', { style: 'margin-top:12px' }, taste('Gerätenamen ändern', geraetenameSetzen, 'schmal'))
+        zeileWert('Letzter Abgleich', datumZeit(zustand.meta.letzter_abgleich)),
+        zeileWert('Version', APP_VERSION))),
+      h('div', { style: 'margin-top:12px' }, taste('Gerätenamen ändern', geraetenameSetzen, 'schmal')),
+      h('div', { style: 'margin-top:10px' }, taste('Nach neuer Version suchen', versionPruefen, 'schmal'))
     ),
 
     kachel(
@@ -374,6 +376,39 @@ export async function jetztAbgleichen() {
             '. Diese werden als verschiedene Spieler geführt.' })
         : null,
     ],
+    tasten: [{ text: 'Verstanden', art: 'haupt' }],
+  });
+}
+
+async function versionPruefen() {
+  const imZwischenspeicher = await serviceWorkerVersion();
+  const passt = !imZwischenspeicher || imZwischenspeicher === APP_VERSION;
+
+  if (!passt) {
+    const ergebnis = await holeNeueVersion();
+    await dialog({
+      titel: 'Ältere Fassung im Zwischenspeicher',
+      inhalt: [
+        h('p', { klasse: 'sekundaer', text:
+          `Geladen ist ${APP_VERSION}, ausgeliefert wird ${imZwischenspeicher}.` }),
+        h('p', { klasse: 'klein', text: ergebnis.neu
+          ? 'Die neue Fassung wurde übernommen, die App lädt sich gleich neu.'
+          : 'Es wurde nach einer neuen Fassung gesucht. Kommt sie nicht an, hilft: App vom ' +
+            'Startbildschirm schließen und erneut öffnen.' }),
+      ],
+      tasten: [{ text: 'Verstanden', art: 'haupt' }],
+    });
+    return;
+  }
+
+  const ergebnis = await holeNeueVersion();
+  await dialog({
+    titel: ergebnis.neu ? 'Neue Fassung gefunden' : `Aktuell: ${APP_VERSION}`,
+    inhalt: h('p', { klasse: 'sekundaer', text: ergebnis.ok
+      ? (ergebnis.neu
+          ? 'Sie wird übernommen, die App lädt sich gleich neu.'
+          : 'Es liegt keine neuere Fassung im Repository.')
+      : ergebnis.meldung }),
     tasten: [{ text: 'Verstanden', art: 'haupt' }],
   });
 }

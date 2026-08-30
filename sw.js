@@ -6,7 +6,7 @@
 // WICHTIG bei Aenderungen: VERSION erhoehen, sonst nehmen die Geraete die
 // neuen Dateien nicht an. Neue Dateien zusaetzlich in DATEIEN eintragen.
 
-const VERSION = 'v23';
+const VERSION = 'v24';
 const CACHE = `spielepunkte-${VERSION}`;
 
 const DATEIEN = [
@@ -50,7 +50,12 @@ self.addEventListener('activate', (ereignis) => {
 // Uebernahme erst auf ausdrueckliche Anweisung der App, nie still
 // waehrend einer laufenden Partie.
 self.addEventListener('message', (ereignis) => {
-  if (ereignis.data && ereignis.data.befehl === 'sofort-uebernehmen') self.skipWaiting();
+  if (!ereignis.data) return;
+  if (ereignis.data.befehl === 'sofort-uebernehmen') self.skipWaiting();
+  // Die App fragt hier nach, welche Fassung tatsächlich ausgeliefert wird.
+  if (ereignis.data.befehl === 'version' && ereignis.ports && ereignis.ports[0]) {
+    ereignis.ports[0].postMessage({ version: VERSION });
+  }
 });
 
 self.addEventListener('fetch', (ereignis) => {

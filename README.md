@@ -176,6 +176,13 @@ Dateien aus dem Zwischenspeicher, und die Änderung kommt nicht an.
 Neu hinzugefügte Dateien müssen zusätzlich in der Liste `DATEIEN` in `sw.js`
 eingetragen werden.
 
+`APP_VERSION` in `kern.js` muss denselben Wert haben wie `VERSION` in `sw.js`.
+Unter **Daten → Dieses Gerät** steht die geladene Version; der Knopf
+**„Nach neuer Version suchen"** vergleicht sie mit der, die der Service Worker
+tatsächlich ausliefert. Weichen beide ab, läuft auf dem Gerät noch eine ältere
+Fassung aus dem Zwischenspeicher — der Knopf holt sie dann nach. So lässt sich
+sofort feststellen, ob eine Änderung wirklich angekommen ist.
+
 Beim nächsten App-Start erscheint dann der Hinweis „Eine neue Version ist
 bereit“ mit der Schaltfläche „Neu laden“. Während einer laufenden Partie wird
 nicht auf Neuerungen geprüft.
