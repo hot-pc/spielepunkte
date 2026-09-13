@@ -9,7 +9,7 @@ import {
   zifferntastatur, datumZeit,
 } from './ui.js';
 import {
-  berechneStand, platzierung, pruefeEnde, eingabeGueltig, endbedingungVorschlag,
+  berechneStand, platzierung, pruefeEnde, eingabeGueltig, endbedingungVorschlag, zugnummern,
   spielerIdAusName, abstand, namensform,
 } from './regeln.js';
 import { kurznamen } from './kurznamen.js';
@@ -21,6 +21,16 @@ import { erfassungBlatt, blaetter, punkte as blattPunkte, bonusKonflikte, bonusV
 // --- Hilfen --------------------------------------------------------------
 
 export { nameVon };
+
+/** Reihenfolge der Spalten in der Matrix (Konzept 6.5). */
+export function spaltenVon(partie) {
+  return partie.spalten && partie.spalten.length ? partie.spalten : reihenfolgeVon(partie);
+}
+
+/** Aktuelle Erfassungsreihenfolge — wer als Naechstes an der Reihe ist. */
+export function reihenfolgeVon(partie) {
+  return partie.reihenfolge && partie.reihenfolge.length ? partie.reihenfolge : partie.teilnehmer;
+}
 
 function kurznamenFuer(teilnehmer) {
   const kurz = kurznamen(teilnehmer.map(nameVon));
@@ -458,19 +468,21 @@ async function siegerWaehlen(partie) {
 // Modus punkte_rundenblock ------------------------------------------------
 
 function naechsteZelle(partie, stand) {
+  const reihenfolge = reihenfolgeVon(partie);
   const runden = Math.max(stand.letzteSequenz, 0);
   for (let seq = 1; seq <= runden; seq++) {
     const zeile = stand.matrix.get(seq);
-    for (const id of partie.teilnehmer) {
+    for (const id of reihenfolge) {
       if (!zeile || !zeile.has(id)) return { sequenz: seq, spieler_id: id };
     }
   }
-  return { sequenz: runden + 1, spieler_id: partie.teilnehmer[0] };
+  return { sequenz: runden + 1, spieler_id: reihenfolge[0] };
 }
 
 function erfassungRundenblock(partie, def) {
-  const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
-  const kurz = kurznamenFuer(partie.teilnehmer);
+  const spalten = spaltenVon(partie);
+  const stand = berechneStand(def, spalten, partie.eintraege);
+  const kurz = kurznamenFuer(spalten);
   const beendet = partie.status !== 'laufend';
   const zelle = erfassung.korrekturZelle || (beendet ? null : naechsteZelle(partie, stand));
 
@@ -478,12 +490,16 @@ function erfassungRundenblock(partie, def) {
   const signatur = `${stand.vollstaendigeRunden}|${[...stand.summen.values()].join(',')}`;
   const zeigeEnde = !beendet && ende.erreicht && erfassung.endeIgnoriert !== signatur;
 
+  const bestandszelle = (stand.matrix.get(zelle ? zelle.sequenz : 0) || new Map())
+    .get(zelle ? zelle.spieler_id : '');
   const tastatur = zelle
     ? zifferntastatur({
         negativErlaubt: def.vorzeichen === 'auch_negativ',
         anzeigeWer: () => `Runde ${zelle.sequenz} · ${nameVon(zelle.spieler_id)}`,
-        startwert: (stand.matrix.get(zelle.sequenz) || new Map()).get(zelle.spieler_id) ?? '',
-        uebernehmen: (wert) => werteEintragen(partie, def, zelle, wert),
+        startwert: bestandszelle ? bestandszelle.wert : '',
+        markierungen: def.markierungen || [],
+        startmarkierungen: bestandszelle ? bestandszelle.markierungen : {},
+        uebernehmen: (wert, marken) => werteEintragen(partie, def, zelle, wert, marken),
       })
     : null;
 
@@ -513,6 +529,7 @@ function erfassungRundenblock(partie, def) {
     kachel(
       h('div', { klasse: 'tastenreihe' },
         infoTaste(def, 'schmal'),
+        !beendet ? reihenfolgeTaste(partie) : null,
         beendet
           ? taste('Zum Ergebnis', () => navigiere('ergebnis', { partieId: partie.id }), 'haupt schmal')
           : taste('Partie beenden', () => partieBeenden(partie, def), 'haupt schmal')),
@@ -522,7 +539,9 @@ function erfassungRundenblock(partie, def) {
 }
 
 function matrixTabelle(partie, def, stand, kurz, aktiv) {
+  const spalten = spaltenVon(partie);
   const runden = Math.max(stand.letzteSequenz, 1);
+  const kopfmarken = (def.markierungen || []).filter((m) => m.in_kopfzeile);
   const zeilen = [];
 
   for (let seq = 1; seq <= runden; seq++) {
@@ -530,15 +549,16 @@ function matrixTabelle(partie, def, stand, kurz, aktiv) {
     zeilen.push(
       h('tr', {},
         h('th', { klasse: 'runde zahl', text: String(seq) }),
-        ...partie.teilnehmer.map((id) => {
-          const hatWert = zeile.has(id);
+        ...spalten.map((id) => {
+          const zellwert = zeile.get(id);
           const reset = stand.resets.find((r) => r.sequenz === seq && r.spieler_id === id);
           const istAktiv = aktiv && aktiv.sequenz === seq && aktiv.spieler_id === id;
           return h('td', {
-            klasse: `zelle${hatWert ? '' : ' leer'}${istAktiv ? ' aktiv' : ''}`,
+            klasse: `zelle${zellwert ? '' : ' leer'}${istAktiv ? ' aktiv' : ''}`,
             onclick: () => { erfassung.korrekturZelle = { sequenz: seq, spieler_id: id }; zeichne(); },
           },
-            h('span', { klasse: 'zahl', text: hatWert ? String(zeile.get(id)) : '·' }),
+            h('span', { klasse: 'zahl', text: zellwert ? String(zellwert.wert) : '·' }),
+            zellwert ? zellmarken(def, zellwert.markierungen) : null,
             reset ? h('span', { klasse: 'reset-marke', text: `${reset.von} → ${reset.nach}` }) : null);
         }))
     );
@@ -547,17 +567,35 @@ function matrixTabelle(partie, def, stand, kurz, aktiv) {
   return h('table', { klasse: 'matrix' },
     h('thead', {}, h('tr', {},
       h('th', { klasse: 'runde', text: '' }),
-      ...partie.teilnehmer.map((id) => h('th', { title: nameVon(id), text: kurz.get(id) })))),
+      ...spalten.map((id) => h('th', { title: nameVon(id), text: kurz.get(id) })))),
     h('tbody', {}, ...zeilen),
     h('tfoot', {}, h('tr', { klasse: 'summe' },
       h('th', { klasse: 'runde', text: 'Σ' }),
-      ...partie.teilnehmer.map((id) =>
-        h('td', { klasse: 'zahl', text: String(stand.summen.get(id) ?? 0) })))));
+      ...spalten.map((id) =>
+        h('td', { klasse: 'zahl' },
+          String(stand.summen.get(id) ?? 0),
+          ...kopfmarken.map((m) => {
+            const anzahl = (stand.markierungen.get(id) || {})[m.id] || 0;
+            return anzahl
+              ? h('span', { klasse: 'zellmarke', text: `${m.symbol}${anzahl > 1 ? anzahl : ''}` })
+              : null;
+          }))))));
+}
+
+/** Markierungen einer einzelnen Zelle, z. B. ★2 */
+function zellmarken(def, markierungen) {
+  const eintraege = Object.entries(markierungen || {}).filter(([, anzahl]) => anzahl > 0);
+  if (!eintraege.length) return null;
+  return h('span', { klasse: 'zellmarke' }, ...eintraege.map(([schluessel, anzahl]) => {
+    const m = (def.markierungen || []).find((x) => x.id === schluessel);
+    const symbol = m ? m.symbol : '•';
+    return `${symbol}${anzahl > 1 ? anzahl : ''}`;
+  }).join(' '));
 }
 
 let schreibtGerade = false;
 
-async function werteEintragen(partie, def, zelle, wert) {
+async function werteEintragen(partie, def, zelle, wert, markierungen) {
   // Sperre gegen Doppeltippen: solange der vorige Wert noch geschrieben und
   // die Ansicht neu aufgebaut wird, werden weitere Eingaben verworfen.
   if (schreibtGerade) return;
@@ -566,7 +604,7 @@ async function werteEintragen(partie, def, zelle, wert) {
     const pruefung = eingabeGueltig(def, wert);
     if (!pruefung.ok) { meldung(pruefung.meldung); return; }
 
-    const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
+    const stand = berechneStand(def, spaltenVon(partie), partie.eintraege);
     const bestand = (stand.matrix.get(zelle.sequenz) || new Map()).has(zelle.spieler_id);
 
     await schreibe(bestand ? 'eintrag_korrigiert' : 'eintrag_erfasst', {
@@ -574,6 +612,7 @@ async function werteEintragen(partie, def, zelle, wert) {
       sequenz: zelle.sequenz,
       spieler_id: zelle.spieler_id,
       wert,
+      markierungen: markierungen && Object.keys(markierungen).length ? markierungen : undefined,
     });
 
     erfassung.korrekturZelle = null;
@@ -587,29 +626,50 @@ async function werteEintragen(partie, def, zelle, wert) {
 // Modus punkte_fortlaufend ------------------------------------------------
 
 function erfassungFortlaufend(partie, def) {
-  const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
+  const spalten = spaltenVon(partie);
+  const reihenfolge = reihenfolgeVon(partie);
+  const stand = berechneStand(def, spalten, partie.eintraege);
   const beendet = partie.status !== 'laufend';
-  const anzahlZuege = stand.sequenzen.length;
-  const naechster = partie.teilnehmer[anzahlZuege % partie.teilnehmer.length];
-  const zelle = erfassung.korrekturZelle || (beendet ? null : { sequenz: stand.letzteSequenz + 1, spieler_id: naechster });
+  const zn = zugnummern(stand.matrix);
 
-  const pl = platzierung(def, partie.teilnehmer, stand);
+  // Wer ist als Naechstes dran? Der erste Spieler der aktuellen Reihenfolge,
+  // der in der niedrigsten offenen Runde noch keinen Zug hat.
+  const zugAnzahl = (id) => (zn.zug.get(id) ? zn.zug.get(id).size : 0);
+  const naechster = reihenfolge.reduce(
+    (bester, id) => (zugAnzahl(id) < zugAnzahl(bester) ? id : bester), reihenfolge[0]);
+
+  const zelle = erfassung.korrekturZelle
+    || (beendet ? null : { sequenz: stand.letzteSequenz + 1, spieler_id: naechster });
+
+  const pl = platzierung(def, spalten, stand);
+  const bestandszelle = zelle
+    ? (stand.matrix.get(zelle.sequenz) || new Map()).get(zelle.spieler_id)
+    : null;
 
   const tastatur = zelle
     ? zifferntastatur({
         negativErlaubt: def.vorzeichen === 'auch_negativ',
-        anzeigeWer: () => `${nameVon(zelle.spieler_id)} · Zug ${zelle.sequenz}`,
-        startwert: (stand.matrix.get(zelle.sequenz) || new Map()).get(zelle.spieler_id) ?? '',
-        uebernehmen: (wert) => werteEintragen(partie, def, zelle, wert),
+        anzeigeWer: () => `${nameVon(zelle.spieler_id)} · Zug ${
+          bestandszelle ? zn.zug.get(zelle.spieler_id).get(zelle.sequenz) : zugAnzahl(zelle.spieler_id) + 1}`,
+        startwert: bestandszelle ? bestandszelle.wert : '',
+        markierungen: def.markierungen || [],
+        startmarkierungen: bestandszelle ? bestandszelle.markierungen : {},
+        uebernehmen: (wert, marken) => werteEintragen(partie, def, zelle, wert, marken),
       })
     : null;
-
-  const zuege = [...stand.sequenzen].reverse().slice(0, 12);
 
   return [
     erfassungKopf(partie, def),
 
     partie.nachtraeglich_geaendert ? kachel(h('span', { klasse: 'marke', text: 'nachträglich geändert' })) : null,
+
+    kachel(
+      h('div', { klasse: 'matrix-huelle' }, zugRaster(partie, def, stand, zn, zelle)),
+      h('p', { klasse: 'klein', style: 'margin-top:10px',
+        text: 'Zeile n zeigt den n-ten Zug jedes Spielers. Eine Zelle antippen, um sie zu ändern.' })
+    ),
+
+    tastatur ? kachel(tastatur.element) : null,
 
     kachel(
       h('h2', { text: 'Stand' }),
@@ -623,30 +683,10 @@ function erfassungFortlaufend(partie, def) {
             h('td', { klasse: 'zahl', text: String(z.summe) })))))
     ),
 
-    tastatur ? kachel(tastatur.element) : null,
-
-    zuege.length
-      ? kachel(
-          h('h2', { text: 'Letzte Züge' }),
-          h('ul', { klasse: 'liste', style: 'margin:0 -16px -16px' },
-            ...zuege.map((seq) => {
-              const zeile = stand.matrix.get(seq);
-              const [spielerId, wert] = [...zeile.entries()][0];
-              return h('li', {}, h('button', {
-                klasse: 'eintrag',
-                onclick: () => { erfassung.korrekturZelle = { sequenz: seq, spieler_id: spielerId }; zeichne(); },
-              },
-                h('span', { klasse: 'haupt' },
-                  h('span', { klasse: 'titel', text: nameVon(spielerId) }),
-                  h('span', { klasse: 'klein', style: 'display:block', text: `Zug ${seq}` })),
-                h('span', { klasse: 'zahl', text: String(wert) })));
-            }))
-        )
-      : null,
-
     kachel(
       h('div', { klasse: 'tastenreihe' },
         infoTaste(def, 'schmal'),
+        !beendet ? reihenfolgeTaste(partie) : null,
         beendet
           ? taste('Zum Ergebnis', () => navigiere('ergebnis', { partieId: partie.id }), 'haupt schmal')
           : taste('Spiel beenden', () => partieBeenden(partie, def), 'haupt schmal')),
@@ -655,13 +695,119 @@ function erfassungFortlaufend(partie, def) {
   ];
 }
 
+/**
+ * Rundenraster fuer die fortlaufende Erfassung (Konzept 6.4):
+ * Zeile n enthaelt den n-ten Zug jedes Spielers. Die letzte Zeile darf
+ * unvollstaendig sein — das Spiel endet mitten in einer Runde.
+ */
+function zugRaster(partie, def, stand, zn, aktiv) {
+  const spalten = spaltenVon(partie);
+  const kurz = kurznamenFuer(spalten);
+  const kopfmarken = (def.markierungen || []).filter((m) => m.in_kopfzeile);
+  const runden = Math.max(zn.runden, 1);
+  // Die nächste, noch leere Zelle bekommt eine eigene Zeile, wenn die
+  // laufende Runde für diesen Spieler schon voll ist.
+  const zeilenAnzahl = aktiv && !aktiv.bestand
+    ? Math.max(runden, ...spalten.map((id) => (zn.zug.get(id) ? zn.zug.get(id).size : 0) + 1))
+    : runden;
+
+  const zeilen = [];
+  for (let runde = 1; runde <= zeilenAnzahl; runde++) {
+    zeilen.push(h('tr', {},
+      h('th', { klasse: 'runde zahl', text: String(runde) }),
+      ...spalten.map((id) => {
+        const seq = zn.sequenz.get(id) ? zn.sequenz.get(id).get(runde) : undefined;
+        const zellwert = seq !== undefined ? stand.matrix.get(seq).get(id) : null;
+        const naechsteRunde = (zn.zug.get(id) ? zn.zug.get(id).size : 0) + 1;
+        const istAktiv = aktiv && aktiv.spieler_id === id &&
+          (seq !== undefined ? aktiv.sequenz === seq : runde === naechsteRunde);
+
+        return h('td', {
+          klasse: `zelle${zellwert ? '' : ' leer'}${istAktiv ? ' aktiv' : ''}`,
+          onclick: seq === undefined ? null : () => {
+            erfassung.korrekturZelle = { sequenz: seq, spieler_id: id };
+            zeichne();
+          },
+        },
+          h('span', { klasse: 'zahl', text: zellwert ? String(zellwert.wert) : '·' }),
+          zellwert ? zellmarken(def, zellwert.markierungen) : null);
+      })));
+  }
+
+  return h('table', { klasse: 'matrix' },
+    h('thead', {}, h('tr', {},
+      h('th', { klasse: 'runde', text: '' }),
+      ...spalten.map((id) => h('th', { title: nameVon(id), text: kurz.get(id) })))),
+    h('tbody', {}, ...zeilen),
+    h('tfoot', {}, h('tr', { klasse: 'summe' },
+      h('th', { klasse: 'runde', text: 'Σ' }),
+      ...spalten.map((id) =>
+        h('td', { klasse: 'zahl' },
+          String(stand.summen.get(id) ?? 0),
+          ...kopfmarken.map((m) => {
+            const anzahl = (stand.markierungen.get(id) || {})[m.id] || 0;
+            return anzahl
+              ? h('span', { klasse: 'zellmarke', text: `${m.symbol}${anzahl > 1 ? anzahl : ''}` })
+              : null;
+          }))))));
+}
+
+// --- Erfassungsreihenfolge aendern (Konzept 6.5) -------------------------
+
+function reihenfolgeTaste(partie) {
+  return taste('Reihenfolge', () => reihenfolgeAendern(partie), 'schmal');
+}
+
+async function reihenfolgeAendern(partie) {
+  const liste = [...reihenfolgeVon(partie)];
+  const behaelter = h('ul', { klasse: 'liste', style: 'margin:0 -16px' });
+
+  const zeichneListe = () => {
+    behaelter.replaceChildren(...liste.map((id, index) =>
+      h('li', {}, h('div', { klasse: 'wahl statisch' },
+        h('span', { klasse: 'reihenfolge zahl', text: String(index + 1) }),
+        h('span', { klasse: 'haupt', text: nameVon(id) }),
+        h('span', { klasse: 'schieber' },
+          h('button', {
+            onclick: () => { if (index > 0) { [liste[index - 1], liste[index]] = [liste[index], liste[index - 1]]; zeichneListe(); } },
+            disabled: index === 0, 'aria-label': 'Nach oben',
+          }, '▲'),
+          h('button', {
+            onclick: () => { if (index < liste.length - 1) { [liste[index + 1], liste[index]] = [liste[index], liste[index + 1]]; zeichneListe(); } },
+            disabled: index === liste.length - 1, 'aria-label': 'Nach unten',
+          }, '▼'))))));
+  };
+  zeichneListe();
+
+  const ok = await dialog({
+    titel: 'Reihenfolge ändern',
+    inhalt: [
+      h('p', { klasse: 'sekundaer', text:
+        'Gilt ab dem nächsten Zug. Bereits erfasste Werte bleiben unverändert; ' +
+        'die Spalten der Matrix behalten ihre Anordnung.' }),
+      behaelter,
+    ],
+    tasten: [
+      { text: 'Abbrechen', wert: false },
+      { text: 'Übernehmen', art: 'haupt', wert: true },
+    ],
+  });
+  if (!ok) return;
+
+  const vorher = reihenfolgeVon(partie).join(',');
+  if (liste.join(',') === vorher) return;
+  await schreibe('reihenfolge_geaendert', { partie_id: partie.id, reihenfolge: liste });
+  meldung('Reihenfolge geändert.');
+  zeichne();
+}
+
 // --- Beenden -------------------------------------------------------------
 
 async function partieBeenden(partie, def) {
   if (def.erfassungsmodus === 'blatt_calavera') return blattPartieBeenden(partie, def);
 
-  const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
-  const pl = platzierung(def, partie.teilnehmer, stand);
+  const stand = berechneStand(def, spaltenVon(partie), partie.eintraege);
+  const pl = platzierung(def, spaltenVon(partie), stand);
 
   if (stand.sequenzen.length === 0) {
     const sicher = await frage('Ohne Werte beenden?',
@@ -724,7 +870,7 @@ registriereAnsicht('ergebnis', ({ partieId }) => {
   if (!partie) return [kopf('Partie nicht gefunden', null, () => navigiere('start'))];
   const def = definitionFuer(partie.spiel_id, partie.spiel_version);
   const erg = ergebnis(def, partie);
-  const kurz = kurznamenFuer(partie.teilnehmer);
+  const kurz = kurznamenFuer(spaltenVon(partie));
 
   const siegerText = erg.sieger.length === 0
     ? 'Kein Sieger festgehalten'

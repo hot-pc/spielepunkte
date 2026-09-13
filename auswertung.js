@@ -39,8 +39,9 @@ export function ergebnis(def, partie) {
       gleichstand: false,
     };
   }
-  const stand = berechneStand(def, partie.teilnehmer, partie.eintraege);
-  const pl = platzierung(def, partie.teilnehmer, stand);
+  const reihen = partie.spalten && partie.spalten.length ? partie.spalten : partie.teilnehmer;
+  const stand = berechneStand(def, reihen, partie.eintraege);
+  const pl = platzierung(def, reihen, stand);
   return {
     punkte: true,
     stand,
@@ -80,7 +81,7 @@ export function sammle(zustand, definitionFuer, filter = {}) {
 }
 
 function leereZeile(id) {
-  return { spieler_id: id, partien: 0, siege: 0, geteilte_siege: 0, summen: [] };
+  return { spieler_id: id, partien: 0, siege: 0, geteilte_siege: 0, summen: [], markierungen: {} };
 }
 
 /** Kennzahlen je Spieler ueber eine Menge von Partien. */
@@ -99,6 +100,11 @@ export function jeSpieler(treffer) {
         const zeile = erg.liste.find((l) => l.spieler_id === id);
         if (zeile) z.summen.push(zeile.summe);
       }
+      // Markierungen aufsummieren (Konzept 7.1).
+      const marken = erg.stand && erg.stand.markierungen ? erg.stand.markierungen.get(id) : null;
+      for (const [schluessel, anzahl] of Object.entries(marken || {})) {
+        z.markierungen[schluessel] = (z.markierungen[schluessel] || 0) + anzahl;
+      }
     }
   }
   for (const z of zeilen.values()) {
@@ -106,6 +112,11 @@ export function jeSpieler(treffer) {
     z.schnitt = z.summen.length ? z.summen.reduce((a, b) => a + b, 0) / z.summen.length : null;
     z.min = z.summen.length ? Math.min(...z.summen) : null;
     z.max = z.summen.length ? Math.max(...z.summen) : null;
+    // Durchschnitt je Partie, damit unterschiedlich viele Partien vergleichbar sind.
+    z.markierungen_schnitt = {};
+    for (const [schluessel, anzahl] of Object.entries(z.markierungen)) {
+      z.markierungen_schnitt[schluessel] = z.partien ? anzahl / z.partien : 0;
+    }
   }
   return [...zeilen.values()].sort((a, b) => b.siege - a.siege || b.quote - a.quote);
 }

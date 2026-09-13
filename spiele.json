@@ -17,7 +17,8 @@
     "schnellstart_wiederholung": "true = nach dem Speichern 'Nochmal, gleiche Spieler' anbieten",
     "serie_gruppieren": "derzeit ueberall false",
     "gleichstandsregel": "geteilte_plaetze_manuell",
-    "blatt": "Nur bei blatt_calavera: Aufbau des Spielblocks (Farben, Punkte je Feld, Punkte- und Todeszone, Bonuslinien, Abschnitte mit der Zahl der Rosen, die zum Einfrieren nötig sind)."
+    "blatt": "Nur bei blatt_calavera: Aufbau des Spielblocks (Farben, Punkte je Feld, Punkte- und Todeszone, Bonuslinien, Abschnitte mit der Zahl der Rosen, die zum Einfrieren nötig sind).",
+    "markierungen": "Optionale Zusatzangaben je Eintrag, die keine Punkte veraendern: id, label, symbol, art (zaehler|ja_nein), in_kopfzeile."
   },
   "spiele": [
     {
@@ -36,7 +37,8 @@
       "spieler_max": null,
       "schnellstart_wiederholung": false,
       "serie_gruppieren": false,
-      "gleichstandsregel": "geteilte_plaetze_manuell"
+      "gleichstandsregel": "geteilte_plaetze_manuell",
+      "markierungen": []
     },
     {
       "id": "skip-bo",
@@ -54,7 +56,8 @@
       "spieler_max": null,
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
-      "gleichstandsregel": "geteilte_plaetze_manuell"
+      "gleichstandsregel": "geteilte_plaetze_manuell",
+      "markierungen": []
     },
     {
       "id": "qwirkle",
@@ -73,7 +76,16 @@
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
       "gleichstandsregel": "geteilte_plaetze_manuell",
-      "hinweis_erfassung": "Abschlussbonus 6 Punkte selbst in den letzten Zugwert einrechnen. Passen oder Tauschen als 0 erfassen."
+      "hinweis_erfassung": "Abschlussbonus 6 Punkte selbst in den letzten Zugwert einrechnen. Passen oder Tauschen als 0 erfassen.",
+      "markierungen": [
+        {
+          "id": "qwirkle",
+          "label": "Qwirkle erzielt",
+          "symbol": "★",
+          "art": "zaehler",
+          "in_kopfzeile": true
+        }
+      ]
     },
     {
       "id": "skyjo",
@@ -92,7 +104,8 @@
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
       "gleichstandsregel": "geteilte_plaetze_manuell",
-      "hinweis_erfassung": "Bei Schwellen-Ende endet die Partie, sobald jemand 100 erreicht. Gewonnen hat die niedrigste Gesamtsumme, nicht zwangslaeufig ein anderer als der Ausloeser."
+      "hinweis_erfassung": "Bei Schwellen-Ende endet die Partie, sobald jemand 100 erreicht. Gewonnen hat die niedrigste Gesamtsumme, nicht zwangslaeufig ein anderer als der Ausloeser.",
+      "markierungen": []
     },
     {
       "id": "cabo",
@@ -118,7 +131,8 @@
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
       "gleichstandsregel": "geteilte_plaetze_manuell",
-      "hinweis_erfassung": "Genau 100 wird auf 50 zurueckgesetzt, beliebig oft. Der Reset gilt auch bei fester Rundenzahl."
+      "hinweis_erfassung": "Genau 100 wird auf 50 zurueckgesetzt, beliebig oft. Der Reset gilt auch bei fester Rundenzahl.",
+      "markierungen": []
     },
     {
       "id": "uno",
@@ -137,7 +151,8 @@
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
       "gleichstandsregel": "geteilte_plaetze_manuell",
-      "hinweis_erfassung": "Jeder behaelt seine eigenen Restkartenpunkte, kein Transfer zum Rundensieger. Rundensieger mit 0 erfassen."
+      "hinweis_erfassung": "Jeder behaelt seine eigenen Restkartenpunkte, kein Transfer zum Rundensieger. Rundensieger mit 0 erfassen.",
+      "markierungen": []
     },
     {
       "id": "ligretto",
@@ -156,7 +171,8 @@
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
       "gleichstandsregel": "geteilte_plaetze_manuell",
-      "hinweis_erfassung": "Hier gewinnt die hoechste Summe."
+      "hinweis_erfassung": "Hier gewinnt die hoechste Summe.",
+      "markierungen": []
     },
     {
       "id": "romme",
@@ -174,7 +190,8 @@
       "spieler_max": null,
       "schnellstart_wiederholung": true,
       "serie_gruppieren": false,
-      "gleichstandsregel": "geteilte_plaetze_manuell"
+      "gleichstandsregel": "geteilte_plaetze_manuell",
+      "markierungen": []
     },
     {
       "id": "calavera",
@@ -266,7 +283,8 @@
             "rosen": 3
           }
         ]
-      }
+      },
+      "markierungen": []
     }
   ]
 }

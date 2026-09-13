@@ -162,6 +162,37 @@ eingefroren), `blatt_bonus_gesetzt` (Linie, Status) und
 `blatt_fertig_gesetzt`. Alle append-only wie das übrige Journal; das jeweils
 jüngste Ereignis je Farbe bzw. Linie gilt.
 
+## Markierungen, Rundenraster, Spielerreihenfolge (Rev. 8)
+
+**Markierungen** (`markierungen` in `spiele.json`) sind Zusatzangaben je
+Eintrag, die keine Punkte verändern: `id`, `label`, `symbol`, `art`
+(`zaehler` oder `ja_nein`) und `in_kopfzeile`. Definiert ist derzeit nur
+`qwirkle` bei Qwirkle. Bei der Punkteingabe erscheint ein Zählerfeld mit
+Plus und Minus; in der Zelle steht das Symbol neben dem Wert (bei mehr als
+einem mit Zahl, `★2`), in der Summenzeile die Gesamtzahl je Spieler. In der
+Auswertung je Spiel kommt eine Spalte mit Gesamtzahl und Durchschnitt je
+Partie dazu. Markierungen wirken sich nie auf Punkte, Wertungsrichtung oder
+Endbedingung aus.
+
+**Rundenraster bei fortlaufender Erfassung** (Qwirkle): Zeile *n* enthält den
+*n*-ten Zug jedes Spielers; die letzte Zeile darf unvollständig sein.
+Gruppiert wird über den Zugzähler je Spieler, abgeleitet aus der Reihenfolge
+der Sequenzen — nicht aus der Sequenznummer. Dadurch stimmt die Darstellung
+auch für Partien, die vorher erfasst wurden; das Datenmodell bleibt
+unverändert, eine Datenwanderung entfällt.
+
+**Spielerreihenfolge ändern:** Der Knopf „Reihenfolge" in der Erfassung
+schreibt ein Ereignis `reihenfolge_geaendert`. Es wirkt ab dem nächsten Zug,
+nie rückwirkend. Für die Spalten der Matrix gilt:
+
+- Solange die Partie **keinen** erfassten Wert enthält, folgen die Spalten der
+  aktuellen Reihenfolge.
+- **Ab dem ersten Wert frieren die Spalten ein** (`spalten` in der
+  Projektion); eine spätere Änderung steuert nur noch, wer als Nächstes dran
+  ist.
+- Werden alle Werte wieder entfernt, folgen die Spalten erneut der aktuellen
+  Reihenfolge.
+
 ## Änderungen veröffentlichen — Pflichtschritt
 
 Nach **jeder** Änderung an einer Datei muss in `sw.js` die Zeile

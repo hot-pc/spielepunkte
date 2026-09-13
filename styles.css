@@ -371,3 +371,26 @@ table.blatt.quer .reihenwert {
   background: none; border: 0; padding: 0; font: inherit; color: var(--akzent-dunkel);
   text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
 }
+
+/* --- Markierungen (Konzept 5.3) ----------------------------------------- */
+
+.markierung {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin-top: 10px; padding: 8px 10px; border: 0.5px solid var(--rand);
+  border-radius: var(--radius-klein); background: var(--grund);
+}
+.markierung-text { font-size: 0.9rem; font-weight: 550; }
+.markierung-symbol { color: var(--akzent-dunkel); margin-right: 6px; }
+.markierung-steller { display: flex; align-items: center; gap: 10px; }
+.markierung-taste {
+  width: 42px; height: 38px; border-radius: 8px; border: 0.5px solid var(--rand);
+  background: var(--kachel); color: var(--text); font: inherit; font-size: 1.1rem; cursor: pointer;
+}
+.markierung-wert {
+  min-width: 24px; text-align: center; font-weight: 650; font-size: 1.05rem;
+}
+
+/* Markierung in einer Zelle der Matrix und in der Summenzeile. */
+.zellmarke {
+  display: block; font-size: 0.66rem; line-height: 1.1; color: var(--akzent-dunkel);
+}

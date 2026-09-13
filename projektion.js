@@ -62,12 +62,28 @@ export function projiziere(ereignisse) {
             serie_id: d.serie_id || null,
             eintraege: [],
             blatt: [],
+            // Aktuelle Erfassungsreihenfolge; kann waehrend der Partie
+            // geaendert werden (Konzept 6.5). `teilnehmer` bleibt die
+            // Startreihenfolge.
+            reihenfolge: [...d.teilnehmer],
+            // Spaltenanordnung der Matrix: friert mit dem ersten erfassten
+            // Wert ein und wird frei, wenn alle Werte wieder entfernt sind.
+            spalten: null,
+            zellen: new Set(),
             beendet_am: null,
             nachtraeglich_geaendert: false,
             geraet_name: e.geraet_name || null,
           });
         }
         break;
+
+      case 'reihenfolge_geaendert': {
+        const p = partien.get(d.partie_id);
+        if (!p) break;
+        // Wirkt ab dem naechsten Zug, nie rueckwirkend.
+        p.reihenfolge = [...d.reihenfolge];
+        break;
+      }
 
       case 'eintrag_erfasst':
       case 'eintrag_korrigiert':
@@ -78,10 +94,20 @@ export function projiziere(ereignisse) {
           sequenz: d.sequenz,
           spieler_id: d.spieler_id,
           wert: e.typ === 'eintrag_entfernt' ? null : d.wert,
+          markierungen: e.typ === 'eintrag_entfernt' ? null : (d.markierungen || {}),
           entfernt: e.typ === 'eintrag_entfernt',
           zeit: e.zeit,
           korrektur: e.typ !== 'eintrag_erfasst',
         });
+
+        // Spalten einfrieren, sobald der erste Wert steht — und wieder
+        // freigeben, wenn die Partie keinen Wert mehr enthaelt.
+        const zelle = `${d.sequenz}|${d.spieler_id}`;
+        if (e.typ === 'eintrag_entfernt') p.zellen.delete(zelle);
+        else p.zellen.add(zelle);
+        if (p.zellen.size === 0) p.spalten = null;
+        else if (!p.spalten) p.spalten = [...p.reihenfolge];
+
         if (p.beendet_am && e.zeit > p.beendet_am) p.nachtraeglich_geaendert = true;
         break;
       }

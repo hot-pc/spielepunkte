@@ -49,7 +49,8 @@ export function abstand(a, b) {
  * Aus den Eintraegen einer Partie die Wertematrix bilden.
  * Spaetere Eintraege zur gleichen Zelle ueberschreiben frueheren Wert,
  * `entfernt` loescht die Zelle.
- * @returns {Map<number, Map<string, number>>} sequenz -> spielerId -> wert
+ * @returns {Map<number, Map<string, {wert:number, markierungen:object}>>}
+ *          sequenz -> spielerId -> Zelle
  */
 export function wertematrix(eintraege) {
   const matrix = new Map();
@@ -57,12 +58,42 @@ export function wertematrix(eintraege) {
     if (!matrix.has(e.sequenz)) matrix.set(e.sequenz, new Map());
     const zeile = matrix.get(e.sequenz);
     if (e.entfernt) zeile.delete(e.spieler_id);
-    else zeile.set(e.spieler_id, e.wert);
+    else zeile.set(e.spieler_id, { wert: e.wert, markierungen: e.markierungen || {} });
   }
   for (const [seq, zeile] of [...matrix.entries()]) {
     if (zeile.size === 0) matrix.delete(seq);
   }
   return matrix;
+}
+
+/**
+ * Zugnummern je Spieler: der wievielte Zug dieses Spielers steckt in einer
+ * Sequenz? Grundlage der Rundendarstellung bei fortlaufender Erfassung
+ * (Konzept 6.4) — Zeile n enthaelt den n-ten Zug jedes Spielers.
+ *
+ * Abgeleitet wird aus der Reihenfolge der Sequenzen je Spieler, nicht aus der
+ * Sequenznummer selbst. Dadurch stimmt die Darstellung auch fuer Partien, die
+ * vor dieser Aenderung erfasst wurden — eine Datenwanderung entfaellt.
+ *
+ * @returns {{zug: Map, sequenz: Map, runden: number}}
+ *          zug: spielerId -> sequenz -> Zugnummer
+ *          sequenz: spielerId -> Zugnummer -> sequenz
+ */
+export function zugnummern(matrix) {
+  const zug = new Map();
+  const sequenz = new Map();
+  let runden = 0;
+
+  for (const seq of [...matrix.keys()].sort((a, b) => a - b)) {
+    for (const spielerId of matrix.get(seq).keys()) {
+      if (!zug.has(spielerId)) { zug.set(spielerId, new Map()); sequenz.set(spielerId, new Map()); }
+      const nummer = zug.get(spielerId).size + 1;
+      zug.get(spielerId).set(seq, nummer);
+      sequenz.get(spielerId).set(nummer, seq);
+      if (nummer > runden) runden = nummer;
+    }
+  }
+  return { zug, sequenz, runden };
 }
 
 /**
@@ -82,9 +113,9 @@ export function berechneStand(def, teilnehmer, eintraege) {
 
   for (const seq of sequenzen) {
     const zeile = matrix.get(seq);
-    for (const [spielerId, wert] of zeile) {
+    for (const [spielerId, zelle] of zeile) {
       if (!summen.has(spielerId)) summen.set(spielerId, 0);
-      summen.set(spielerId, summen.get(spielerId) + wert);
+      summen.set(spielerId, summen.get(spielerId) + zelle.wert);
     }
 
     const zeileVollstaendig = teilnehmer.every((id) => zeile.has(id));
@@ -110,10 +141,23 @@ export function berechneStand(def, teilnehmer, eintraege) {
     }
   }
 
+  // Markierungen je Spieler zusammenzaehlen (Konzept 5.3).
+  const markierungen = new Map(teilnehmer.map((id) => [id, {}]));
+  for (const zeile of matrix.values()) {
+    for (const [spielerId, zelle] of zeile) {
+      if (!markierungen.has(spielerId)) markierungen.set(spielerId, {});
+      const summe = markierungen.get(spielerId);
+      for (const [schluessel, anzahl] of Object.entries(zelle.markierungen || {})) {
+        summe[schluessel] = (summe[schluessel] || 0) + (Number(anzahl) || 0);
+      }
+    }
+  }
+
   return {
     matrix,
     sequenzen,
     summen,
+    markierungen,
     resets,
     vollstaendigeRunden,
     letzteSequenz: sequenzen.length ? sequenzen[sequenzen.length - 1] : 0,

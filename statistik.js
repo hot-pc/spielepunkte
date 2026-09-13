@@ -78,6 +78,8 @@ function ansichtJeSpiel(spiele) {
 
   if (!stat) return [auswahl, ...leer('Für dieses Spiel gibt es im gewählten Zeitraum keine beendeten Partien.')];
 
+  const marken = (stat.def && stat.def.markierungen) || [];
+
   const teile = [
     auswahl,
     kachel(
@@ -85,13 +87,20 @@ function ansichtJeSpiel(spiele) {
       h('p', { klasse: 'sekundaer', text: `${datumKurz(stat.von)} bis ${datumKurz(stat.bis)}` }),
       h('table', { klasse: 'daten', style: 'margin-top:10px' },
         h('thead', {}, h('tr', {},
-          h('th', { text: 'Spieler' }), h('th', { text: 'Partien' }), h('th', { text: 'Siege' }), h('th', { text: 'Quote' }))),
+          h('th', { text: 'Spieler' }), h('th', { text: 'Partien' }), h('th', { text: 'Siege' }), h('th', { text: 'Quote' }),
+          ...marken.map((m) => h('th', { title: m.label, text: m.symbol || m.label })))),
         h('tbody', {}, ...stat.gesamt.map((z) =>
           h('tr', {},
             h('td', { text: nameVon(z.spieler_id) }),
             h('td', { klasse: 'zahl', text: String(z.partien) }),
             h('td', { klasse: 'zahl', text: z.geteilte_siege ? `${z.siege} (${z.geteilte_siege} geteilt)` : String(z.siege) }),
-            h('td', { klasse: 'zahl', text: `${zahlKurz(z.quote * 100, 0)} %` }))))),
+            h('td', { klasse: 'zahl', text: `${zahlKurz(z.quote * 100, 0)} %` }),
+            ...marken.map((m) => h('td', { klasse: 'zahl', text:
+              `${z.markierungen[m.id] || 0} (⌀ ${zahlKurz(z.markierungen_schnitt[m.id] || 0, 1)})` })))))),
+      marken.length
+        ? h('p', { klasse: 'klein', style: 'margin-top:8px', text:
+            marken.map((m) => `${m.symbol} ${m.label} — Gesamtzahl und Durchschnitt je Partie`).join('; ') })
+        : null,
       stat.gesamt.some((z) => z.geteilte_siege)
         ? h('p', { klasse: 'klein', style: 'margin-top:8px',
             text: 'Geteilte Siege zählen für alle Erstplatzierten, solange am Tisch kein Sieger festgelegt wurde.' })

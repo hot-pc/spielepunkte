@@ -176,7 +176,42 @@ export async function notizFrage({ titel, bezeichnung, vorbelegung = '', kopf, h
   });
 }
 
-export function zifferntastatur({ negativErlaubt, uebernehmen, anzeigeWer, startwert = '' }) {
+/**
+ * Zaehlerfeld fuer eine Markierung (Konzept 5.3): grosse Plus- und
+ * Minus-Flaechen, damit es am Tisch neben der Zifferntastatur bedienbar ist.
+ */
+export function markierungsfeld(markierung, startwert, beiAenderung) {
+  let anzahl = Number(startwert) || 0;
+  const wertFeld = h('span', { klasse: 'markierung-wert zahl' });
+
+  const zeichne = () => {
+    wertFeld.textContent = markierung.art === 'ja_nein'
+      ? (anzahl ? 'ja' : 'nein')
+      : String(anzahl);
+    beiAenderung(anzahl);
+  };
+  const setze = (neu) => { anzahl = Math.max(0, Math.min(99, neu)); zeichne(); };
+
+  const element = h('div', { klasse: 'markierung' },
+    h('span', { klasse: 'markierung-text' },
+      h('span', { klasse: 'markierung-symbol', text: markierung.symbol || '★' }),
+      markierung.label),
+    markierung.art === 'ja_nein'
+      ? h('button', { klasse: 'markierung-taste', type: 'button', onclick: () => setze(anzahl ? 0 : 1) }, 'umschalten')
+      : h('span', { klasse: 'markierung-steller' },
+          h('button', { klasse: 'markierung-taste', type: 'button', 'aria-label': 'weniger',
+            onclick: () => setze(anzahl - 1) }, '−'),
+          wertFeld,
+          h('button', { klasse: 'markierung-taste', type: 'button', 'aria-label': 'mehr',
+            onclick: () => setze(anzahl + 1) }, '+')));
+
+  if (markierung.art === 'ja_nein') element.append(wertFeld);
+  zeichne();
+  return element;
+}
+
+export function zifferntastatur({ negativErlaubt, uebernehmen, anzeigeWer, startwert = '',
+  markierungen = [], startmarkierungen = {} }) {
   let puffer = startwert === null || startwert === undefined ? '' : String(startwert);
   // Ein vorbelegter Wert wird beim ersten Tastendruck ersetzt, nicht
   // verlaengert. Sonst wuerde aus einer Korrektur von 12 auf 9 die Zahl 129.
@@ -206,11 +241,14 @@ export function zifferntastatur({ negativErlaubt, uebernehmen, anzeigeWer, start
     if (vorbelegt) { puffer = ''; vorbelegt = false; } else puffer = puffer.slice(0, -1);
     zeichne();
   };
+  // Markierungen werden zusammen mit dem Wert uebergeben.
+  const gesetzteMarkierungen = { ...startmarkierungen };
+
   const fertig = () => {
     const zahl = Number.parseInt(puffer, 10);
     if (!Number.isFinite(zahl)) { meldung('Bitte einen Wert eingeben.'); return; }
     // Rückgabe durchreichen: der Knopf sperrt sich, bis der Wert steht.
-    return uebernehmen(zahl);
+    return uebernehmen(zahl, gesetzteMarkierungen);
   };
 
   const t = (text, fn, klasse = '') => h('button', { klasse, onclick: fn, type: 'button' }, text);
@@ -227,8 +265,14 @@ export function zifferntastatur({ negativErlaubt, uebernehmen, anzeigeWer, start
   // Übernehmen steht neben der Anzeige und damit oberhalb der Tastatur:
   // so ist der Knopf ohne Scrollen erreichbar.
   const eingabezeile = h('div', { klasse: 'eingabezeile' }, anzeige, taste('Übernehmen', fertig, 'haupt'));
+  const markierungsfelder = markierungen.map((m) =>
+    markierungsfeld(m, startmarkierungen[m.id] || 0, (anzahl) => {
+      if (anzahl) gesetzteMarkierungen[m.id] = anzahl;
+      else delete gesetzteMarkierungen[m.id];
+    }));
+
   return {
-    element: h('div', {}, eingabezeile, felder),
+    element: h('div', {}, eingabezeile, felder, ...markierungsfelder),
     setzeStartwert(v) {
       puffer = v === null || v === undefined ? '' : String(v);
       vorbelegt = puffer !== '';
