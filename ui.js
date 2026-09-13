@@ -148,6 +148,39 @@ export async function textFrage({ titel, bezeichnung, vorbelegung = '', hinweis,
  * Zifferntastatur. Haelt den Eingabepuffer selbst und meldet den fertigen
  * Wert per uebernehmen(zahl).
  */
+/**
+ * Bestätigung, die ein Wort verlangt — für Schritte, die sich nicht
+ * rückgängig machen lassen. Ein Fehlgriff auf den Knopf genügt dann nicht.
+ */
+export async function wortFrage({ titel, text, hinweis, wort = 'JA', tasteText = 'Löschen' }) {
+  const feld = h('input', { type: 'text', autocapitalize: 'characters', placeholder: wort });
+  const warnung = h('p', { klasse: 'klein', style: 'color:var(--akzent-dunkel);min-height:1.2em' });
+  const passt = () => feld.value.trim().toLocaleLowerCase('de-DE') === wort.toLocaleLowerCase('de-DE');
+  feld.addEventListener('input', () => { warnung.textContent = ''; });
+
+  return dialog({
+    titel,
+    inhalt: [
+      h('p', { klasse: 'sekundaer', text }),
+      hinweis ? h('p', { klasse: 'klein', text: hinweis }) : null,
+      h('label', { klasse: 'feld' },
+        h('span', { klasse: 'bezeichnung', text: `Zum Bestätigen ${wort} eintippen` }), feld),
+      warnung,
+    ],
+    tasten: [
+      { text: 'Abbrechen', wert: false },
+      {
+        text: tasteText, art: 'haupt', wert: true,
+        pruefe: () => {
+          if (passt()) return true;
+          warnung.textContent = `Bitte ${wort} eintippen.`;
+          return false;
+        },
+      },
+    ],
+  });
+}
+
 /** Dialog mit mehrzeiligem Textfeld, für längere Notizen. */
 export async function notizFrage({ titel, bezeichnung, vorbelegung = '', kopf, hoechstlaenge = 4000 }) {
   const feld = h('textarea', {

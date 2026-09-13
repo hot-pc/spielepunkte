@@ -15,6 +15,15 @@ export function projiziere(ereignisse) {
   const spieler = new Map();
   const partien = new Map();
   const notizen = new Map();
+  // Entfernte Partien: Das Ereignis bleibt im Journal und wandert beim
+  // Abgleich mit. Nur so verschwindet die Partie auch auf den anderen
+  // Geraeten und kommt nicht beim naechsten Import zurueck.
+  //
+  // Abgebrochene Partien werden genauso behandelt wie geloeschte: Sie sollen
+  // nirgends mehr auftauchen — weder in einer Liste noch in der Auswertung.
+  // Frueher blieben sie als Status erhalten und waren dadurch an einzelnen
+  // Stellen noch sichtbar, etwa in der Zaehlung im Datenbereich.
+  const geloescht = new Set();
 
   for (const e of sortiere(ereignisse)) {
     const d = e.daten || {};
@@ -133,6 +142,11 @@ export function projiziere(ereignisse) {
         break;
       }
 
+      case 'partie_geloescht':
+      case 'partie_abgebrochen':
+        geloescht.add(d.partie_id);
+        break;
+
       case 'partie_beendet': {
         const p = partien.get(d.partie_id);
         if (!p) break;
@@ -140,15 +154,6 @@ export function projiziere(ereignisse) {
         p.end_zeitpunkt = d.end_zeitpunkt || e.zeit;
         p.beendet_am = e.zeit;
         p.sieger = [...(d.sieger || [])];
-        break;
-      }
-
-      case 'partie_abgebrochen': {
-        const p = partien.get(d.partie_id);
-        if (!p) break;
-        p.status = 'abgebrochen';
-        p.end_zeitpunkt = d.end_zeitpunkt || e.zeit;
-        p.sieger = [];
         break;
       }
 
@@ -167,7 +172,9 @@ export function projiziere(ereignisse) {
     }
   }
 
-  return { spieler, partien, notizen };
+  for (const id of geloescht) partien.delete(id);
+
+  return { spieler, partien, notizen, geloescht };
 }
 
 /** Aktive Spieler alphabetisch, fuer Auswahllisten. */

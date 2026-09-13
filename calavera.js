@@ -14,11 +14,11 @@ import { h, kachel, kopf, taste, meldung, dialog, frage } from './ui.js';
 // Die Beenden- und Abbrechen-Logik liegt in partie.js. Sie wird beim Laden
 // dort angemeldet, damit calavera.js partie.js nicht importieren muss.
 let beendeHandler = null;
-let abbrechenHandler = null;
+let loeschenHandler = null;
 
-export function setzeAbschlussHandler({ beenden, abbrechen }) {
+export function setzeAbschlussHandler({ beenden, loeschen }) {
   beendeHandler = beenden;
-  abbrechenHandler = abbrechen;
+  loeschenHandler = loeschen;
 }
 
 // --- Zustand eines Blattes ----------------------------------------------
@@ -777,10 +777,11 @@ function uebersichtKachel(def, partie, alle, ich, verteilung) {
 
 function abschlussKachel(def, partie, ich, meinBlatt, alle, beendet) {
   if (beendet) {
-    return kachel(taste('Zum Ergebnis', () => {
-      location.hash = '';
-      history.back();
-    }, 'haupt'));
+    return kachel(
+      taste('Zum Ergebnis', () => { history.back(); }, 'haupt'),
+      h('div', { style: 'margin-top:10px' },
+        taste('Partie löschen', () => loeschenHandler && loeschenHandler(partie), 'schmal'))
+    );
   }
 
   const alleFarbenZu = def.blatt.farben.every((f) => meinBlatt.farben[f.id]?.eingefroren);
@@ -812,6 +813,6 @@ function abschlussKachel(def, partie, ich, meinBlatt, alle, beendet) {
         ? 'Alle Blätter sind fertig. Die Partie kann beendet werden.'
         : `Es fehlen noch: ${offeneBlaetter.map(nameVon).join(', ')}` }),
     h('div', { style: 'margin-top:10px' },
-      taste('Partie abbrechen', () => abbrechenHandler && abbrechenHandler(partie), 'schmal'))
+      taste('Partie löschen', () => loeschenHandler && loeschenHandler(partie), 'schmal'))
   );
 }

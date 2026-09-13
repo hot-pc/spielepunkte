@@ -193,6 +193,24 @@ nie rückwirkend. Für die Spalten der Matrix gilt:
 - Werden alle Werte wieder entfernt, folgen die Spalten erneut der aktuellen
   Reihenfolge.
 
+## Partien entfernen
+
+**Ein Weg, ein Ergebnis:** Der Knopf **„Partie löschen"** steht in jeder
+Erfassungsansicht und auf dem Ergebnisbildschirm — für laufende wie für
+beendete Partien, mit oder ohne erfasste Werte. Bestätigt wird durch
+Eintippen des Wortes **JA**; ein Fehlgriff auf den Knopf genügt also nicht.
+
+Technisch wird ein Ereignis `partie_geloescht` geschrieben. Die Projektion
+entfernt die Partie daraufhin vollständig aus dem Zustand: Sie erscheint in
+keiner Liste, in keiner Auswertung und in keiner Zählung mehr. Die Ereignisse
+bleiben im Journal — nur so verschwindet die Partie auch auf den anderen
+Geräten und kommt beim nächsten Abgleich nicht zurück.
+
+**Alte Abbrüche verschwinden ebenso.** Das früher verwendete Ereignis
+`partie_abgebrochen` wird genauso behandelt wie eine Löschung. Der Status
+`abgebrochen` existiert im Zustand damit nicht mehr; Partien aus früheren
+Fassungen, die nur abgebrochen wurden, sind ebenfalls überall ausgeblendet.
+
 ## Änderungen veröffentlichen — Pflichtschritt
 
 Nach **jeder** Änderung an einer Datei muss in `sw.js` die Zeile

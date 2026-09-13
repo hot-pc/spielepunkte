@@ -5,7 +5,7 @@ import {
   neueId, definitionFuer, spieleZurAuswahl, abgleichStill, zeichneSanft, notizFuer, nameVon,
 } from './kern.js';
 import {
-  h, kachel, kopf, taste, meldung, dialog, frage, textFrage, notizFrage,
+  h, kachel, kopf, taste, meldung, dialog, frage, textFrage, notizFrage, wortFrage,
   zifferntastatur, datumZeit,
 } from './ui.js';
 import {
@@ -390,20 +390,35 @@ function erfassungKopf(partie, def) {
   );
 }
 
-export async function partieAbbrechen(partie) {
-  const sicher = await frage(
-    'Partie abbrechen?',
-    'Die Partie wird ohne Sieger festgehalten und zählt in keiner Auswertung mit. Die erfassten Werte bleiben erhalten.',
-    'Abbrechen bestätigen'
-  );
+/**
+ * Partie endgültig entfernen. Das Löschen wird als Ereignis festgehalten,
+ * damit die Partie auch auf den anderen Geräten verschwindet — ein bloßes
+ * Entfernen der lokalen Ereignisse würde beim nächsten Abgleich rückgängig
+ * gemacht.
+ */
+export async function partieLoeschen(partie) {
+  const def = definitionFuer(partie.spiel_id, partie.spiel_version);
+  const anzahl = (partie.eintraege || []).length + (partie.blatt || []).length;
+
+  const sicher = await wortFrage({
+    titel: 'Partie löschen?',
+    text: `${partie.spiel_name || (def && def.name) || 'Partie'} vom ` +
+      `${datumZeit(partie.start_zeitpunkt)} mit ${partie.teilnehmer.map(nameVon).join(', ')}` +
+      (anzahl ? ` und ${anzahl} erfassten Einträgen` : ' ohne erfasste Werte') +
+      ' wird vollständig entfernt.',
+    hinweis: 'Die Partie verschwindet auf allen Geräten und aus jeder Auswertung. ' +
+      'Das lässt sich nicht rückgängig machen.',
+    wort: 'JA',
+  });
   if (!sicher) return;
-  await schreibe('partie_abgebrochen', { partie_id: partie.id, end_zeitpunkt: new Date().toISOString() });
-  meldung('Partie abgebrochen.');
+
+  await schreibe('partie_geloescht', { partie_id: partie.id });
+  meldung('Partie gelöscht.');
   navigiere('start');
 }
 
-function abbrechenTaste(partie) {
-  return taste('Partie abbrechen', () => partieAbbrechen(partie), 'schmal');
+function loeschenTaste(partie) {
+  return taste('Partie löschen', () => partieLoeschen(partie), 'schmal');
 }
 
 // Modus nur_sieger ---------------------------------------------------------
@@ -424,7 +439,7 @@ function erfassungNurSieger(partie, def) {
         infoTaste(def, 'schmal'),
         taste('Spiel beenden', () => siegerWaehlen(partie), 'haupt schmal'))
     ),
-    kachel(abbrechenTaste(partie)),
+    kachel(loeschenTaste(partie)),
   ];
 }
 
@@ -533,7 +548,7 @@ function erfassungRundenblock(partie, def) {
         beendet
           ? taste('Zum Ergebnis', () => navigiere('ergebnis', { partieId: partie.id }), 'haupt schmal')
           : taste('Partie beenden', () => partieBeenden(partie, def), 'haupt schmal')),
-      !beendet ? h('div', { style: 'margin-top:10px' }, abbrechenTaste(partie)) : null
+      h('div', { style: 'margin-top:10px' }, loeschenTaste(partie))
     ),
   ];
 }
@@ -690,7 +705,7 @@ function erfassungFortlaufend(partie, def) {
         beendet
           ? taste('Zum Ergebnis', () => navigiere('ergebnis', { partieId: partie.id }), 'haupt schmal')
           : taste('Spiel beenden', () => partieBeenden(partie, def), 'haupt schmal')),
-      !beendet ? h('div', { style: 'margin-top:10px' }, abbrechenTaste(partie)) : null
+      h('div', { style: 'margin-top:10px' }, loeschenTaste(partie))
     ),
   ];
 }
@@ -949,7 +964,9 @@ registriereAnsicht('ergebnis', ({ partieId }) => {
       def && def.schnellstart_wiederholung
         ? h('div', { style: 'margin-bottom:10px' }, taste('Nochmal, gleiche Spieler', () => nochmal(partie), 'haupt'))
         : null,
-      taste('Zum Start', () => navigiere('start'))
+      taste('Zum Start', () => navigiere('start')),
+      // Auch eine beendete Partie kann sich als Fehlstart herausstellen.
+      h('div', { style: 'margin-top:10px' }, loeschenTaste(partie))
     ),
   ];
 });
@@ -985,4 +1002,4 @@ async function siegerFestlegen(partie, erg) {
 }
 
 // Die Blattansicht braucht Zugriff auf Beenden und Abbrechen.
-setzeAbschlussHandler({ beenden: blattPartieBeenden, abbrechen: partieAbbrechen });
+setzeAbschlussHandler({ beenden: blattPartieBeenden, loeschen: partieLoeschen });
